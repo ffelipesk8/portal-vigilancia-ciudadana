@@ -1,32 +1,43 @@
 import type { Metadata } from "next";
-import { Newsreader, Public_Sans } from "next/font/google";
+import { Space_Grotesk, Inter } from "next/font/google";
 
 import "./globals.css";
 
-const headingFont = Newsreader({
+const headingFont = Space_Grotesk({
   subsets: ["latin"],
   variable: "--font-heading",
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
 });
 
-const bodyFont = Public_Sans({
+const bodyFont = Inter({
   subsets: ["latin"],
   variable: "--font-body",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Canal Ciudadano | Vigilancia y Denuncia",
+  title: "Portal Vigilancia Ciudadana · comBATE la Corrupción",
   description:
-    "Plataforma ciudadana informativa con canal de denuncia anónima y compromisos públicos contra la corrupción.",
+    "Plataforma cívica de veeduría: perfil público del concejal Andrés Gury Rodríguez y canal de denuncia anónima con revisión editorial independiente.",
+  keywords: [
+    "vigilancia ciudadana",
+    "denuncia anónima",
+    "veeduría",
+    "corrupción",
+    "concejal",
+    "control social",
+  ],
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es">
-      <body className={`${headingFont.variable} ${bodyFont.variable}`}>{children}</body>
+    <html lang="es" className="scroll-smooth">
+      <body className={`${headingFont.variable} ${bodyFont.variable}`}>
+        {children}
+      </body>
     </html>
   );
 }
