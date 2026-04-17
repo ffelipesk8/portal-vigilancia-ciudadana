@@ -47,277 +47,150 @@ const denounceable = [
    BAT 3D  —  canvas with bezier-curve baseball bat profile + metallic shading
 ═══════════════════════════════════════════════════════════════════════════ */
 function Bat3D() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mountRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+    const mount = mountRef.current;
+    if (!mount) return;
+    let raf = 0;
+    let cleanupFn: (() => void) | null = null;
 
-    const W = 260, H = 520, CX = W / 2;
-    canvas.width  = W;
-    canvas.height = H;
+    import("three").then((THREE) => {
+      const W = 260, H = 520;
 
-    let angle = Math.PI * 0.2;
-    let raf: number;
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
+      camera.position.set(0, 0, 7);
 
-    /* ─ Particle pool ─ */
-    type Particle = { x:number; y:number; vx:number; vy:number; life:number; maxLife:number; size:number };
-    const particles: Particle[] = Array.from({ length: 14 }, () => ({
-      x: CX + (Math.random() - 0.5) * 70,
-      y: 60  + Math.random() * 380,
-      vx: (Math.random() - 0.5) * 0.9,
-      vy: -(Math.random() * 1.4 + 0.4),
-      life: Math.random() * 80,
-      maxLife: 70 + Math.random() * 70,
-      size: 1 + Math.random() * 1.8,
-    }));
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(W, H);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.localClippingEnabled = true;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.2;
+      mount.appendChild(renderer.domElement);
 
-    /* ─ Bat profile: radius at a given y ─ */
-    function batR(y: number): number {
-      if (y <= 20)  return 0;
-      if (y <= 32)  return ((y - 20) / 12) * 38;       // top cap flare
-      if (y <= 178) return 38;                           // barrel
-      if (y <= 234) return 38 - ((y - 178) / 56) * 26; // shoulder taper
-      if (y <= 395) return 12;                           // handle
-      if (y <= 428) return 12 + ((y - 395) / 33) * 10; // knob build-up
-      if (y <= 458) return 22 - ((y - 428) / 30) * 22; // knob bottom
-      return 0;
-    }
-
-    /* ─ Build clipping path ─ */
-    function buildPath(xM: number) {
-      ctx.beginPath();
-      ctx.moveTo(CX, 18);
-      ctx.quadraticCurveTo(CX - 44*xM, 26, CX - 40*xM, 50);
-      ctx.lineTo(CX - 40*xM, 176);
-      ctx.bezierCurveTo(CX - 39*xM, 212, CX - 13*xM, 235, CX - 12*xM, 262);
-      ctx.lineTo(CX - 12*xM, 396);
-      ctx.quadraticCurveTo(CX - 12*xM, 416, CX - 22*xM, 430);
-      ctx.quadraticCurveTo(CX - 24*xM, 452, CX - 9*xM,  464);
-      ctx.lineTo(CX, 467);
-      ctx.lineTo(CX +  9*xM,  464);
-      ctx.quadraticCurveTo(CX + 24*xM, 452, CX + 22*xM, 430);
-      ctx.quadraticCurveTo(CX + 12*xM, 416, CX + 12*xM, 396);
-      ctx.lineTo(CX + 12*xM, 262);
-      ctx.bezierCurveTo(CX + 13*xM, 235, CX + 39*xM, 212, CX + 40*xM, 176);
-      ctx.lineTo(CX + 40*xM, 50);
-      ctx.quadraticCurveTo(CX + 44*xM, 26, CX, 18);
-      ctx.closePath();
-    }
-
-    function draw(a: number) {
-      ctx.clearRect(0, 0, W, H);
-
-      const cosA = Math.cos(a);
-      const xM   = Math.max(0.045, Math.abs(cosA));
-      const lit  = cosA >= 0;
-      const gx1  = CX - 46 * xM;
-      const gx2  = CX + 46 * xM;
-
-      /* ── Ambient glow behind bat ── */
-      const aura = ctx.createRadialGradient(CX, 250, 20, CX, 250, 130);
-      aura.addColorStop(0,   lit ? 'rgba(212,168,32,0.28)' : 'rgba(0,60,20,0.18)');
-      aura.addColorStop(1,   'rgba(0,0,0,0)');
-      ctx.fillStyle = aura;
-      ctx.beginPath();
-      ctx.ellipse(CX, 250, 130, 250, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      /* ── Main bat body (clipped) ── */
-      ctx.save();
-      buildPath(xM);
-      ctx.clip();
-
-      // Layer 1 – base metallic colour
-      const base = ctx.createLinearGradient(gx1, 0, gx2, 0);
-      if (lit) {
-        base.addColorStop(0,    '#0e0700');
-        base.addColorStop(0.10, '#4a2c04');
-        base.addColorStop(0.26, '#8B5E0E');
-        base.addColorStop(0.40, '#D4A820');
-        base.addColorStop(0.50, '#FFE870');  // specular peak
-        base.addColorStop(0.60, '#D4A820');
-        base.addColorStop(0.74, '#8B5E0E');
-        base.addColorStop(0.90, '#4a2c04');
-        base.addColorStop(1,    '#0e0700');
-      } else {
-        base.addColorStop(0,    '#060300');
-        base.addColorStop(0.38, '#221504');
-        base.addColorStop(0.55, '#4a3008');
-        base.addColorStop(0.72, '#221504');
-        base.addColorStop(1,    '#060300');
+      /* ─ Toon gradient textures ─ */
+      function makeToon(hexColors: string[]) {
+        const data = new Uint8Array(hexColors.length * 4);
+        hexColors.forEach((hex, i) => {
+          const c = new THREE.Color(hex);
+          data[i * 4 + 0] = Math.round(c.r * 255);
+          data[i * 4 + 1] = Math.round(c.g * 255);
+          data[i * 4 + 2] = Math.round(c.b * 255);
+          data[i * 4 + 3] = 255;
+        });
+        const t = new THREE.DataTexture(data, hexColors.length, 1);
+        t.minFilter = THREE.NearestFilter;
+        t.magFilter = THREE.NearestFilter;
+        t.needsUpdate = true;
+        return t;
       }
-      ctx.fillStyle = base;
-      ctx.fillRect(gx1 - 2, 0, gx2 - gx1 + 4, H);
+      const gradGold  = makeToon(["#3d2400","#8B5E00","#D4A820","#F0D070"]);
+      const gradGreen = makeToon(["#000a04","#002a14","#00572a","#00a050"]);
 
-      // Layer 2 – specular hot-spot (tight vertical band that shifts with rotation)
-      if (lit) {
-        const spX = gx1 + (gx2 - gx1) * (0.42 + cosA * 0.08);
-        const sp  = ctx.createLinearGradient(spX - 18*xM, 0, spX + 18*xM, 0);
-        sp.addColorStop(0,    'rgba(255,255,220,0)');
-        sp.addColorStop(0.35, 'rgba(255,255,220,0.55)');
-        sp.addColorStop(0.50, 'rgba(255,255,255,0.88)');
-        sp.addColorStop(0.65, 'rgba(255,255,220,0.55)');
-        sp.addColorStop(1,    'rgba(255,255,220,0)');
-        ctx.fillStyle = sp;
-        ctx.fillRect(gx1, 22, gx2 - gx1, 420);
+      /* ─ Bat silhouette profile ─ */
+      const pts = [
+        [0.000,-2.50],[0.130,-2.40],[0.170,-2.22],[0.160,-2.10],
+        [0.090,-2.00],[0.058,-1.80],[0.052,-1.20],[0.052,-0.20],
+        [0.058, 0.10],[0.100, 0.55],[0.160, 1.00],[0.210, 1.45],
+        [0.235, 1.80],[0.240, 2.10],[0.240, 2.28],[0.235, 2.38],
+        [0.200, 2.46],[0.120, 2.50],[0.000, 2.52],
+      ].map(([x,y]) => new THREE.Vector2(x, y));
+
+      const batGeo = new THREE.LatheGeometry(pts, 48);
+      const SPLIT  = -0.25;
+
+      /* ─ Two-tone: gold barrel + green handle ─ */
+      const barrelMesh = new THREE.Mesh(batGeo, new THREE.MeshToonMaterial({
+        color:         0xD4A820,
+        gradientMap:   gradGold,
+        clippingPlanes:[new THREE.Plane(new THREE.Vector3(0, -1, 0), SPLIT)],
+      }));
+      const handleMesh = new THREE.Mesh(batGeo, new THREE.MeshToonMaterial({
+        color:         0x00572a,
+        gradientMap:   gradGreen,
+        clippingPlanes:[new THREE.Plane(new THREE.Vector3(0,  1, 0), -SPLIT)],
+      }));
+
+      /* ─ Cartoon outline (back-face inflate) ─ */
+      const outPts = pts.map(p => new THREE.Vector2(p.x * 1.045, p.y));
+      const outMesh = new THREE.Mesh(
+        new THREE.LatheGeometry(outPts, 48),
+        new THREE.MeshBasicMaterial({ color: 0x080808, side: THREE.BackSide }),
+      );
+
+      /* ─ VIGILANCIA text on barrel ─ */
+      const tc = document.createElement("canvas");
+      tc.width = 512; tc.height = 128;
+      const tctx = tc.getContext("2d") as CanvasRenderingContext2D;
+      tctx.font = "bold 56px Arial Black, sans-serif";
+      tctx.fillStyle = "#1a0a00";
+      tctx.textAlign = "center";
+      tctx.textBaseline = "middle";
+      tctx.fillText("VIGILANCIA", 256, 64);
+      const textMesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.244, 0.244, 0.65, 48, 1, true, -Math.PI * 0.55, Math.PI * 1.1),
+        new THREE.MeshBasicMaterial({
+          map: new THREE.CanvasTexture(tc),
+          transparent: true,
+          alphaTest: 0.05,
+          depthWrite: false,
+        }),
+      );
+      textMesh.position.y = 1.9;
+
+      /* ─ Wood grain rings on barrel ─ */
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x8B5E00, transparent: true, opacity: 0.35 });
+      const ringGeos = Array.from({ length: 7 }, (_, i) => {
+        const r = new THREE.Mesh(new THREE.TorusGeometry(0.242, 0.0025, 6, 48), ringMat);
+        r.rotation.x = Math.PI / 2;
+        r.position.y  = 0.4 + i * 0.32;
+        return r;
+      });
+
+      /* ─ Assemble & tilt ─ */
+      const batGroup = new THREE.Group();
+      batGroup.add(barrelMesh, handleMesh, outMesh, textMesh, ...ringGeos);
+      batGroup.rotation.z = Math.PI * 0.18;
+      scene.add(batGroup);
+
+      /* ─ Lighting ─ */
+      scene.add(new THREE.AmbientLight(0xfff5cc, 0.7));
+      const key = new THREE.DirectionalLight(0xfff0d0, 2.2);
+      key.position.set(3, 5, 4);
+      scene.add(key);
+      const rim = new THREE.DirectionalLight(0xD4A820, 1.2);
+      rim.position.set(-3, 1, -2);
+      scene.add(rim);
+
+      /* ─ Animation loop ─ */
+      let t = 0;
+      function draw() {
+        raf = requestAnimationFrame(draw);
+        t += 0.012;
+        batGroup.rotation.y = Math.sin(t * 0.4) * 0.5;
+        renderer.render(scene, camera);
       }
+      draw();
 
-      // Layer 3 – subtle vertical striations (metallic texture)
-      if (xM > 0.15) {
-        const alpha = Math.min(0.18, (xM - 0.15) * 0.6);
-        for (let s = 0; s < 6; s++) {
-          const sx = gx1 + (gx2 - gx1) * (0.08 + s * 0.165);
-          const st = ctx.createLinearGradient(sx - 1.5, 0, sx + 1.5, 0);
-          st.addColorStop(0,   `rgba(255,230,120,0)`);
-          st.addColorStop(0.5, `rgba(255,230,120,${alpha})`);
-          st.addColorStop(1,   `rgba(255,230,120,0)`);
-          ctx.fillStyle = st;
-          ctx.fillRect(sx - 1.5, 22, 3, 420);
+      cleanupFn = () => {
+        cancelAnimationFrame(raf);
+        renderer.dispose();
+        if (mount.contains(renderer.domElement)) {
+          mount.removeChild(renderer.domElement);
         }
-      }
+      };
+    });
 
-      // Layer 4 – Fresnel rim light (bright right-edge when lit)
-      if (lit) {
-        const rim = ctx.createLinearGradient(gx2 - 14*xM, 0, gx2 + 2, 0);
-        rim.addColorStop(0,  'rgba(255,240,160,0)');
-        rim.addColorStop(0.5,'rgba(255,240,160,0.65)');
-        rim.addColorStop(1,  'rgba(255,255,240,0.92)');
-        ctx.fillStyle = rim;
-        ctx.fillRect(gx2 - 14*xM, 28, 14*xM + 2, 440);
-      }
-
-      // Layer 5 – ambient occlusion on both edges
-      const aoL = ctx.createLinearGradient(gx1, 0, gx1 + 14*xM, 0);
-      aoL.addColorStop(0, 'rgba(0,0,0,0.72)');
-      aoL.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = aoL;
-      ctx.fillRect(gx1, 0, 14*xM, H);
-
-      const aoR = ctx.createLinearGradient(gx2 - 14*xM, 0, gx2, 0);
-      aoR.addColorStop(0, 'rgba(0,0,0,0)');
-      aoR.addColorStop(1, lit ? 'rgba(0,0,0,0.28)' : 'rgba(0,0,0,0.65)');
-      ctx.fillStyle = aoR;
-      ctx.fillRect(gx2 - 14*xM, 0, 14*xM, H);
-
-      ctx.restore(); // end clip
-
-      /* ── Antioquia stripe at shoulder ── */
-      const sW = batR(258) * xM;
-      if (sW > 0.8) {
-        ctx.save();
-        const sg = ctx.createLinearGradient(CX - sW, 0, CX + sW, 0);
-        sg.addColorStop(0,    'rgba(0,20,10,0.7)');
-        sg.addColorStop(0.30, '#00572a');
-        sg.addColorStop(0.55, '#00c060');
-        sg.addColorStop(0.70, '#00572a');
-        sg.addColorStop(1,    'rgba(0,20,10,0.7)');
-        ctx.fillStyle = sg;
-        ctx.fillRect(CX - sW, 257, sW * 2, 11);
-        const sg2 = ctx.createLinearGradient(CX - sW, 0, CX + sW, 0);
-        sg2.addColorStop(0,   'rgba(50,30,0,0.5)');
-        sg2.addColorStop(0.50,'#F0C840');
-        sg2.addColorStop(1,   'rgba(50,30,0,0.5)');
-        ctx.fillStyle = sg2;
-        ctx.fillRect(CX - sW, 270, sW * 2, 4);
-        ctx.restore();
-      }
-
-      /* ── Cross-section ellipses ── */
-      // Barrel top cap
-      const btW = 40 * xM;
-      if (btW > 1) {
-        ctx.save();
-        ctx.shadowColor = lit ? 'rgba(255,220,60,0.9)' : 'rgba(0,0,0,0.4)';
-        ctx.shadowBlur  = 8;
-        const be = ctx.createLinearGradient(CX - btW, 0, CX + btW, 0);
-        if (lit) {
-          be.addColorStop(0,   '#2a1600'); be.addColorStop(0.25,'#B8820A');
-          be.addColorStop(0.52,'#FFE870'); be.addColorStop(0.75,'#B8820A');
-          be.addColorStop(1,   '#2a1600');
-        } else {
-          be.addColorStop(0,'#100800'); be.addColorStop(0.5,'#5a3808'); be.addColorStop(1,'#100800');
-        }
-        ctx.beginPath();
-        ctx.ellipse(CX, 34, btW, 11, 0, 0, Math.PI * 2);
-        ctx.fillStyle = be; ctx.fill();
-        ctx.restore();
-      }
-
-      // Barrel-shoulder ring
-      if (btW > 1) {
-        ctx.save();
-        ctx.globalAlpha = lit ? 0.55 : 0.3;
-        ctx.beginPath();
-        ctx.ellipse(CX, 176, 40*xM, 7, 0, 0, Math.PI * 2);
-        ctx.strokeStyle = lit ? '#D4A820' : '#4a3000';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // Knob bottom cap
-      const kbW = 22 * xM;
-      if (kbW > 1) {
-        ctx.save();
-        ctx.shadowColor = 'rgba(212,168,32,0.6)';
-        ctx.shadowBlur  = 10;
-        const ke = ctx.createLinearGradient(CX - kbW, 0, CX + kbW, 0);
-        if (lit) {
-          ke.addColorStop(0,'#1e1000'); ke.addColorStop(0.35,'#C8900A');
-          ke.addColorStop(0.55,'#FFE060'); ke.addColorStop(0.75,'#C8900A');
-          ke.addColorStop(1,'#1e1000');
-        } else {
-          ke.addColorStop(0,'#0c0600'); ke.addColorStop(0.5,'#3a2604'); ke.addColorStop(1,'#0c0600');
-        }
-        ctx.beginPath();
-        ctx.ellipse(CX, 460, kbW, 9, 0, 0, Math.PI * 2);
-        ctx.fillStyle = ke; ctx.fill();
-        ctx.restore();
-      }
-
-      /* ── Gold spark particles ── */
-      ctx.save();
-      for (const p of particles) {
-        p.x  += p.vx;
-        p.y  += p.vy;
-        p.vy -= 0.008; // gravity-like deceleration
-        p.life++;
-        const dead = p.life > p.maxLife || p.y < -15 || p.x < -15 || p.x > W + 15;
-        if (dead) {
-          const side = Math.random() > 0.5 ? 1 : -1;
-          p.x       = CX + side * batR(120 + Math.random() * 250) * xM * 0.9;
-          p.y       = 90 + Math.random() * 340;
-          p.vx      = side * (Math.random() * 1.8 + 0.4);
-          p.vy      = -(Math.random() * 0.8 + 0.2);
-          p.life    = 0;
-          p.maxLife = 55 + Math.random() * 80;
-          p.size    = 0.8 + Math.random() * 1.6;
-        }
-        const t  = p.life / p.maxLife;
-        const al = Math.sin(t * Math.PI) * (lit ? 0.85 : 0.45);
-        const r  = p.size * (1 + Math.sin(t * Math.PI) * 0.8);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        const hue = 40 + Math.random() * 20;
-        ctx.fillStyle = `hsla(${hue},100%,${55 + t * 20}%,${al})`;
-        ctx.fill();
-      }
-      ctx.restore();
-    }
-
-    function loop() {
-      try { angle += 0.012; draw(angle); } catch (_) { /* skip */ }
-      raf = requestAnimationFrame(loop);
-    }
-    loop();
-    return () => cancelAnimationFrame(raf);
+    return () => { if (cleanupFn) cleanupFn(); };
   }, []);
 
   return (
-    <canvas ref={canvasRef} width={260} height={520}
-      style={{ display:'block', margin:'0 auto' }} />
+    <div
+      ref={mountRef}
+      style={{ width: 260, height: 520, display: "block", margin: "0 auto" }}
+    />
   );
 }
 
