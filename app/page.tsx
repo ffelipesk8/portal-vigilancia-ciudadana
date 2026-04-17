@@ -2,340 +2,214 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  AlertCircle,
-  ArrowRight,
-  BadgeCheck,
-  CheckCircle,
-  ChevronRight,
-  Clock,
-  Eye,
-  FileText,
-  Lock,
-  Send,
-  Shield,
-  Users,
+  AlertCircle, ArrowRight, BadgeCheck, CheckCircle,
+  ChevronRight, Clock, Eye, FileText, Lock, Send, Shield, Users,
 } from "lucide-react";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+/* ─── Types ─────────────────────────────────────────────────────────────── */
+type Report = { id:string; title:string; category:string; location:string; summary:string; status:string; createdAt:string; };
+type Feedback = { type:"success"|"error"; message:string };
 
-type Report = {
-  id: string;
-  title: string;
-  category: string;
-  location: string;
-  summary: string;
-  status: string;
-  createdAt: string;
-};
-
-type Feedback = { type: "success" | "error"; message: string };
-
-// ─── Static Data ─────────────────────────────────────────────────────────────
-
-const commitments = [
-  "Publicar rutas claras de seguimiento y respuesta para cada denuncia ciudadana.",
-  "Separar el discurso político del tratamiento editorial de los reportes recibidos.",
-  "Promover control social con evidencias, contexto y protección del anonimato.",
-];
-
+/* ─── Static Data ───────────────────────────────────────────────────────── */
 const steps = [
-  {
-    number: "01",
-    title: "Cuéntalo",
-    icon: FileText,
-    description:
-      "Resume el hecho, la zona y por qué consideras que amerita revisión pública. No necesitas pruebas definitivas para reportar.",
-  },
-  {
-    number: "02",
-    title: "Protege la evidencia",
-    icon: Shield,
-    description:
-      "Describe documentos, fechas, contratos o testigos sin revelar tu identidad. La narrativa debe ser concreta y verificable.",
-  },
-  {
-    number: "03",
-    title: "Activa el seguimiento",
-    icon: Eye,
-    description:
-      "El equipo editorial revisa, clasifica y decide si publica o remite el caso a la autoridad competente. Transparencia en cada paso.",
-  },
+  { number:"01", title:"Cuéntalo", icon:FileText,
+    description:"Resume el hecho, la zona y por qué lo consideras irregular. No necesitas pruebas definitivas." },
+  { number:"02", title:"Protege la evidencia", icon:Shield,
+    description:"Describe documentos, fechas o contratos sin revelar tu identidad. Sé concreto y verificable." },
+  { number:"03", title:"Activa el seguimiento", icon:Eye,
+    description:"El equipo editorial revisa, clasifica y decide si publica o remite el caso a la autoridad competente." },
 ];
 
 const metrics = [
-  { value: "24h", label: "Meta de primera revisión editorial" },
-  { value: "100%", label: "Recepción sin exigir identidad" },
-  { value: "3 filtros", label: "Validación antes de publicar" },
+  { value:"24h",      label:"Meta de primera revisión" },
+  { value:"100%",     label:"Sin exigir identidad" },
+  { value:"3 filtros",label:"Antes de publicar" },
 ];
 
 const faq = [
-  {
-    question: "¿La denuncia es realmente anónima?",
-    answer:
-      "El formulario no pide nombre ni documento. Aun así, evita incluir datos personales tuyos o de terceros dentro del texto del reporte.",
-  },
-  {
-    question: "¿Se publica todo lo recibido?",
-    answer:
-      "No. Cada caso pasa por moderación inicial para reducir contenido falso, información sensible o material que pueda afectar procesos legales en curso.",
-  },
-  {
-    question: "¿Sirve como denuncia penal formal?",
-    answer:
-      "No reemplaza los canales oficiales. Es un espacio de veeduría ciudadana. Cuando corresponda, se recomienda escalar a fiscalía, procuraduría o personería.",
-  },
+  { question:"¿Es realmente anónimo?",
+    answer:"El formulario no pide nombre ni documento. Evita incluir datos personales tuyos dentro del texto." },
+  { question:"¿Se publica todo?",
+    answer:"No. Cada caso pasa por moderación para reducir contenido falso o material que afecte procesos legales en curso." },
+  { question:"¿Sirve como denuncia penal?",
+    answer:"No reemplaza los canales oficiales. Cuando corresponda, se recomienda escalar a fiscalía, procuraduría o personería." },
 ];
 
-const categories = [
-  "Contratación pública",
-  "Abuso de poder",
-  "Uso de recursos públicos",
-  "Presión política",
-  "Otro",
-];
+const categories = ["Contratación pública","Abuso de poder","Uso de recursos públicos","Presión política","Otro"];
 
-// Qué puede denunciar el ciudadano — hero card bullets
 const denounceable = [
-  {
-    icon: BadgeCheck,
-    text: "Contratos con sobrecostos, irregularidades o adjudicación indebida.",
-  },
-  {
-    icon: Shield,
-    text: "Uso indebido de bienes, presupuesto o infraestructura pública.",
-  },
-  {
-    icon: Eye,
-    text: "Presión política, clientelismo o intimidación a servidores públicos.",
-  },
+  { icon:BadgeCheck, text:"Contratos con sobrecostos, irregularidades o adjudicación indebida." },
+  { icon:Shield,     text:"Uso indebido de bienes, presupuesto o infraestructura pública." },
+  { icon:Eye,        text:"Presión política, clientelismo o intimidación a servidores públicos." },
 ];
 
-function statusBadgeClass(status: string): string {
-  if (status === "En verificación") return "badge badge-warn";
-  if (status === "Seguimiento abierto") return "badge badge-info";
-  return "badge badge-ok";
-}
-
-// ─── 3D Bat Canvas ────────────────────────────────────────────────────────────
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   BAT 3D  —  canvas with bezier-curve baseball bat profile + metallic shading
+═══════════════════════════════════════════════════════════════════════════ */
 function Bat3D() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d")!;
+    const canvas = canvasRef.current!;
+    const ctx    = canvas.getContext("2d")!;
+    const W = 220, H = 500, CX = W / 2;
+    canvas.width  = W;
+    canvas.height = H;
 
-    const W = 200;
-    const H = 370;
-    const cx = W / 2;
-    let angle = 0;
+    let angle = Math.PI * 0.3;
     let raf: number;
-
-    // Draw a filled ellipse helper
-    function ell(
-      x: number,
-      y: number,
-      rx: number,
-      ry: number,
-      color: string
-    ) {
-      if (rx < 0.5) return;
-      ctx.beginPath();
-      ctx.ellipse(x, y, Math.max(0.5, rx), ry, 0, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-    }
 
     function draw(a: number) {
       ctx.clearRect(0, 0, W, H);
 
-      const cosA = Math.cos(a);
-      const xM = Math.abs(cosA); // foreshortening factor
-      const facing = cosA >= 0; // true = facing viewer
+      const cosA  = Math.cos(a);
+      const xM    = Math.abs(cosA);          // foreshortening 0-1
+      const lit   = cosA >= 0;               // which face is bright
 
-      // ── Geometry ──────────────────────────────────────────────────────────
+      /* ── bat silhouette path (bezier profile, top=barrel, bottom=knob) ── */
+      ctx.beginPath();
 
-      // Barrel (top of bat, hitting end)
-      const bTopY = 28;
-      const bBotY = 188;
-      const bTopR = 30;
-      const bBotR = 18;
-      const bTopX = bTopR * xM;
-      const bBotX = bBotR * xM;
-
-      // Handle
-      const hTopY = bBotY;
-      const hBotY = 308;
-      const hR = 8.5;
-      const hX = hR * xM;
-
-      // Knob
-      const kY = 325;
-      const kR = 14;
-      const kX = kR * xM;
-
-      // ── Metallic gradient factory ─────────────────────────────────────────
-      function barrelGrad(leftW: number, rightW: number) {
-        const g = ctx.createLinearGradient(
-          cx - Math.max(leftW, 1),
-          0,
-          cx + Math.max(rightW, 1),
-          0
-        );
-        const hl = (cosA + 1) / 2; // highlight position 0-1
-
-        if (facing) {
-          g.addColorStop(0, "#2a1200");
-          g.addColorStop(Math.max(0.05, hl * 0.5), "#9B7010");
-          g.addColorStop(hl * 0.78, "#D4A820");
-          g.addColorStop(Math.min(0.92, hl * 0.88 + 0.04), "#FFE050");
-          g.addColorStop(Math.min(0.95, hl * 0.95 + 0.03), "#D4A820");
-          g.addColorStop(1, "#2a1200");
-        } else {
-          g.addColorStop(0, "#160900");
-          g.addColorStop(0.5, "#5a3808");
-          g.addColorStop(1, "#160900");
-        }
-        return g;
-      }
-
-      function handleGrad(w: number) {
-        const g = ctx.createLinearGradient(
-          cx - Math.max(w, 1),
-          0,
-          cx + Math.max(w, 1),
-          0
-        );
-        if (facing) {
-          g.addColorStop(0, "#1e0e00");
-          g.addColorStop(0.35, "#8B6010");
-          g.addColorStop(0.6, "#D4A820");
-          g.addColorStop(1, "#1e0e00");
-        } else {
-          g.addColorStop(0, "#0e0600");
-          g.addColorStop(0.5, "#4a2e08");
-          g.addColorStop(1, "#0e0600");
-        }
-        return g;
-      }
-
-      // ── GLOW layer ────────────────────────────────────────────────────────
-      const glowCol = facing
-        ? "rgba(212,168,32,0.38)"
-        : "rgba(0,100,40,0.28)";
-      const glowGrad = ctx.createRadialGradient(cx, 175, 0, cx, 175, 75);
-      glowGrad.addColorStop(0, glowCol);
-      glowGrad.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = glowGrad;
-      ctx.fillRect(cx - 80, 80, 160, 200);
-
-      // ── Draw with canvas shadow (bloom) ───────────────────────────────────
-      ctx.save();
-      ctx.shadowColor = facing ? "#D4A820" : "#005520";
-      ctx.shadowBlur = facing ? 22 : 14;
-
-      // Barrel body (tapered trapezoid)
-      if (bTopX > 0.5 || bBotX > 0.5) {
-        ctx.beginPath();
-        ctx.moveTo(cx - bTopX, bTopY + 10);
-        ctx.lineTo(cx - bBotX, bBotY);
-        ctx.lineTo(cx + bBotX, bBotY);
-        ctx.lineTo(cx + bTopX, bTopY + 10);
-        ctx.closePath();
-        ctx.fillStyle = barrelGrad(bTopX, bTopX);
-        ctx.fill();
-      }
-
-      // Handle body
-      if (hX > 0.5) {
-        ctx.beginPath();
-        ctx.rect(cx - hX, hTopY, hX * 2, hBotY - hTopY);
-        ctx.fillStyle = handleGrad(hX);
-        ctx.fill();
-      }
-
-      // Knob body (disc rim)
-      if (kX > 0.5) {
-        ctx.beginPath();
-        ctx.rect(cx - kX, kY - 10, kX * 2, 10);
-        ctx.fillStyle = facing ? "#B88A10" : "#5a3808";
-        ctx.fill();
-      }
-
-      ctx.restore(); // clear shadow
-
-      // ── End caps ─────────────────────────────────────────────────────────
-      // Barrel top cap
-      ell(
-        cx,
-        bTopY + 10,
-        bTopX,
-        10,
-        facing ? "#FFE870" : "#6B4808"
+      // === LEFT contour  (top → bottom) ===
+      ctx.moveTo(CX, 18);                                     // barrel cap centre
+      ctx.quadraticCurveTo(CX - 42*xM, 24, CX - 40*xM, 46); // barrel top flare
+      ctx.lineTo(CX - 40*xM, 175);                           // barrel side
+      ctx.bezierCurveTo(                                      // shoulder (smooth S)
+        CX - 39*xM, 200,
+        CX - 14*xM, 228,
+        CX - 12*xM, 255
       );
+      ctx.lineTo(CX - 12*xM, 395);                           // handle
+      ctx.quadraticCurveTo(CX - 12*xM, 412, CX - 19*xM, 428); // knob start
+      ctx.quadraticCurveTo(CX - 22*xM, 448, CX - 10*xM, 462); // knob curve
+      ctx.lineTo(CX, 465);                                    // knob bottom centre
 
-      // Barrel shoulder
-      ell(cx, bBotY, bBotX, 7, facing ? "#C8900A" : "#6a4200");
+      // === RIGHT contour (bottom → top, mirror) ===
+      ctx.lineTo(CX + 10*xM, 462);
+      ctx.quadraticCurveTo(CX + 22*xM, 448, CX + 19*xM, 428);
+      ctx.quadraticCurveTo(CX + 12*xM, 412, CX + 12*xM, 395);
+      ctx.lineTo(CX + 12*xM, 255);
+      ctx.bezierCurveTo(
+        CX + 14*xM, 228,
+        CX + 39*xM, 200,
+        CX + 40*xM, 175
+      );
+      ctx.lineTo(CX + 40*xM, 46);
+      ctx.quadraticCurveTo(CX + 42*xM, 24, CX, 18);
+      ctx.closePath();
 
-      // Knob ellipse
-      ell(cx, kY, kX, 6, facing ? "#C8900A" : "#6a4200");
-
-      // ── Antioquia stripe: verde + dorado ──────────────────────────────────
-      const stripeW = Math.max(0, bBotX * 1.05);
-      if (stripeW > 0.5) {
-        // Verde
-        ctx.fillStyle = facing ? "#00aa44" : "#003d18";
-        ctx.fillRect(cx - stripeW, bBotY - 18, stripeW * 2, 9);
-        // Dorado
-        ctx.fillStyle = facing ? "#D4A820" : "#7a5000";
-        ctx.fillRect(cx - stripeW, bBotY - 9, stripeW * 2, 9);
+      /* ── metallic gradient (shifts with cosA for rotation illusion) ── */
+      const gx1 = CX - 44 * xM, gx2 = CX + 44 * xM;
+      const mg  = ctx.createLinearGradient(gx1, 0, gx2, 0);
+      if (lit) {
+        // bright face
+        mg.addColorStop(0,    "#1a0a00");
+        mg.addColorStop(0.12, "#7a4e08");
+        mg.addColorStop(0.30, "#C8900A");
+        mg.addColorStop(0.44, "#E8B820");
+        mg.addColorStop(0.50, "#FFF0A0"); // specular peak
+        mg.addColorStop(0.58, "#E8B820");
+        mg.addColorStop(0.73, "#C8900A");
+        mg.addColorStop(0.88, "#7a4e08");
+        mg.addColorStop(1,    "#1a0a00");
+      } else {
+        // dark face (rotating away)
+        mg.addColorStop(0,    "#0a0500");
+        mg.addColorStop(0.40, "#3a2205");
+        mg.addColorStop(0.60, "#5a3608");
+        mg.addColorStop(1,    "#0a0500");
       }
 
-      // ── Specular highlight (white streak on barrel) ───────────────────────
-      if (cosA > 0.12 && bTopX > 3) {
-        const sX = cx - 7 * cosA;
-        const sW = 5;
-        const sG = ctx.createLinearGradient(sX - sW, 0, sX + sW, 0);
-        sG.addColorStop(0, "rgba(255,255,255,0)");
-        sG.addColorStop(0.5, `rgba(255,255,255,${(cosA * 0.65).toFixed(2)})`);
-        sG.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = sG;
-        ctx.fillRect(sX - sW, bTopY + 18, sW * 2, bBotY - bTopY - 28);
+      /* bloom glow */
+      ctx.shadowColor = lit ? "rgba(212,168,32,0.70)" : "rgba(0,80,30,0.40)";
+      ctx.shadowBlur  = 28;
+
+      ctx.fillStyle = mg;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      /* ── Antioquia stripe at shoulder ── */
+      const sY = 248, sH1 = 10, sH2 = 5;
+      const sW = 13 * xM;
+      if (sW > 0.5) {
+        const sg = ctx.createLinearGradient(CX - sW, 0, CX + sW, 0);
+        sg.addColorStop(0,   "rgba(0,30,15,0.6)");
+        sg.addColorStop(0.35,"#00572a");
+        sg.addColorStop(0.65,"#00a050");
+        sg.addColorStop(1,   "rgba(0,30,15,0.6)");
+        ctx.fillStyle = sg;
+        ctx.fillRect(CX - sW, sY, sW * 2, sH1);
+
+        const sg2 = ctx.createLinearGradient(CX - sW, 0, CX + sW, 0);
+        sg2.addColorStop(0,   "rgba(80,50,0,0.4)");
+        sg2.addColorStop(0.5, "#F0C840");
+        sg2.addColorStop(1,   "rgba(80,50,0,0.4)");
+        ctx.fillStyle = sg2;
+        ctx.fillRect(CX - sW, sY + sH1 + 2, sW * 2, sH2);
       }
 
-      // Specular on handle
-      if (cosA > 0.2 && hX > 1.5) {
-        const sX2 = cx - 3 * cosA;
-        const sG2 = ctx.createLinearGradient(sX2 - 3, 0, sX2 + 3, 0);
-        sG2.addColorStop(0, "rgba(255,255,255,0)");
-        sG2.addColorStop(0.5, `rgba(255,255,255,${(cosA * 0.4).toFixed(2)})`);
-        sG2.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = sG2;
-        ctx.fillRect(sX2 - 3, hTopY + 4, 6, hBotY - hTopY - 8);
-      }
-
-      // ── Edge outline stroke (crispness) ───────────────────────────────────
-      if (bTopX > 1 || bBotX > 1) {
+      /* ── rim ellipses (sell the 3-D cross-sections) ── */
+      // Barrel top cap
+      const btW = 40 * xM;
+      if (btW > 0.5) {
+        const beg = ctx.createRadialGradient(CX, 32, 0, CX, 32, btW);
+        beg.addColorStop(0,   lit ? "rgba(255,240,160,0.95)" : "rgba(90,60,10,0.5)");
+        beg.addColorStop(0.6, lit ? "rgba(220,170,20,0.6)"  : "rgba(40,25,0,0.4)");
+        beg.addColorStop(1,   "rgba(0,0,0,0)");
         ctx.beginPath();
-        ctx.moveTo(cx - bTopX, bTopY + 10);
-        ctx.lineTo(cx - bBotX, bBotY);
-        ctx.strokeStyle = `rgba(255,220,50,${(xM * 0.25).toFixed(2)})`;
-        ctx.lineWidth = 0.8;
-        ctx.stroke();
+        ctx.ellipse(CX, 32, btW, 9, 0, 0, Math.PI * 2);
+        ctx.fillStyle = beg;
+        ctx.fill();
+      }
+
+      // Barrel shoulder ring (visible where taper starts)
+      const shW = 40 * xM;
+      if (shW > 0.5) {
+        ctx.save();
+        ctx.globalAlpha = 0.25;
         ctx.beginPath();
-        ctx.moveTo(cx + bTopX, bTopY + 10);
-        ctx.lineTo(cx + bBotX, bBotY);
+        ctx.ellipse(CX, 175, shW, 7, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = lit ? "#F0C840" : "#5a3808";
+        ctx.lineWidth = 1.5;
         ctx.stroke();
+        ctx.restore();
+      }
+
+      // Knob bottom cap
+      const kbW = 22 * xM;
+      if (kbW > 0.5) {
+        const keg = ctx.createRadialGradient(CX, 455, 0, CX, 455, kbW);
+        keg.addColorStop(0,   lit ? "rgba(255,210,80,0.9)"  : "rgba(60,35,5,0.6)");
+        keg.addColorStop(0.7, lit ? "rgba(180,120,10,0.5)"  : "rgba(20,10,0,0.4)");
+        keg.addColorStop(1,   "rgba(0,0,0,0)");
+        ctx.beginPath();
+        ctx.ellipse(CX, 455, kbW, 8, 0, 0, Math.PI * 2);
+        ctx.fillStyle = keg;
+        ctx.fill();
+      }
+
+      /* ── thin edge highlight ── */
+      if (xM > 0.05 && lit) {
+        const hx = CX + 40 * xM - 2;
+        const hg = ctx.createLinearGradient(0, 40, 0, 180);
+        hg.addColorStop(0, "rgba(255,255,200,0.0)");
+        hg.addColorStop(0.3,"rgba(255,255,200,0.5)");
+        hg.addColorStop(0.7,"rgba(255,255,200,0.5)");
+        hg.addColorStop(1, "rgba(255,255,200,0.0)");
+        ctx.beginPath();
+        ctx.moveTo(hx - 1, 40);
+        ctx.lineTo(hx + 1, 40);
+        ctx.lineTo(hx + 1, 180);
+        ctx.lineTo(hx - 1, 180);
+        ctx.fillStyle = hg;
+        ctx.fill();
       }
     }
 
     function loop() {
-      angle += 0.016;
+      angle += 0.014;
       draw(angle);
       raf = requestAnimationFrame(loop);
     }
-
     loop();
     return () => cancelAnimationFrame(raf);
   }, []);
@@ -343,1398 +217,802 @@ function Bat3D() {
   return (
     <canvas
       ref={canvasRef}
-      width={200}
-      height={370}
-      aria-label="Logo bate 3D rotando — símbolo editorial del portal"
-      style={{ display: "block", width: "200px", height: "370px" }}
+      width={220}
+      height={500}
+      style={{ display:"block", margin:"0 auto" }}
     />
   );
 }
 
-// ─── Game HUD wrapper para el bate ───────────────────────────────────────────
-
+/* ─── BatHUD ─────────────────────────────────────────────────────────────── */
 function BatHUD() {
   return (
-    <div
-      className="bat-hud"
-      style={{ width: "100%", maxWidth: "300px", padding: "0" }}
-    >
-      {/* Corner brackets */}
-      <div className="bat-hud-corner tl" aria-hidden="true" />
-      <div className="bat-hud-corner tr" aria-hidden="true" />
-      <div className="bat-hud-corner bl" aria-hidden="true" />
-      <div className="bat-hud-corner br" aria-hidden="true" />
+    <div className="bat-hud" style={{ width:290 }}>
+      {/* corner brackets */}
+      {(["tl","tr","bl","br"] as const).map(p => (
+        <span key={p} className={`bat-hud-corner ${p}`} />
+      ))}
 
-      {/* HUD header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "14px 18px 12px",
-          borderBottom: "1px solid rgba(212,168,32,0.20)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span
-            style={{
-              display: "inline-block",
-              width: 8,
-              height: 8,
-              borderRadius: "50%",
-              background: "var(--gold)",
-              animation: "glowPulse 2s ease-in-out infinite",
-            }}
-          />
-          <span
-            style={{
-              fontSize: "0.625rem",
-              letterSpacing: "0.28em",
-              textTransform: "uppercase",
-              color: "var(--gold)",
-              fontWeight: 700,
-              fontFamily: "var(--font-heading), sans-serif",
-            }}
-          >
-            com<span style={{ color: "#ffffff" }}>BATE</span>
-          </span>
+      {/* header */}
+      <div style={{
+        position:"relative", zIndex:2,
+        padding:"10px 16px 6px",
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+        borderBottom:"1px solid rgba(212,168,32,0.18)",
+      }}>
+        <div>
+          <div style={{ fontFamily:"var(--font-heading)", fontSize:11, fontWeight:700,
+            letterSpacing:"0.14em", color:"var(--gold)", textTransform:"uppercase" }}>
+            comBATE
+          </div>
+          <div style={{ fontSize:9, letterSpacing:"0.12em", color:"rgba(212,168,32,0.55)",
+            textTransform:"uppercase", marginTop:1 }}>
+            Arma Cívica
+          </div>
         </div>
-        <span
-          style={{
-            fontSize: "0.6rem",
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "rgba(212,168,32,0.55)",
-            fontFamily: "var(--font-heading), sans-serif",
-          }}
-        >
-          ARMA CÍVICA
-        </span>
+        <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+          <div style={{ width:6, height:6, borderRadius:"50%", background:"var(--gold)",
+            animation:"glowPulse 1.8s ease infinite" }} />
+          <span style={{ fontSize:9, letterSpacing:"0.1em",
+            color:"rgba(212,168,32,0.7)", textTransform:"uppercase" }}>Live</span>
+        </div>
       </div>
 
-      {/* Bat canvas — centered */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          padding: "12px 20px 16px",
-          position: "relative",
-        }}
-      >
-        {/* Subtle scan line effect */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            inset: 0,
-            background:
-              "repeating-linear-gradient(transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px)",
-            pointerEvents: "none",
-          }}
-        />
+      {/* bat canvas */}
+      <div style={{ position:"relative", zIndex:2, padding:"8px 0 4px" }}>
         <Bat3D />
       </div>
 
-      {/* HUD stats footer */}
-      <div
-        style={{
-          borderTop: "1px solid rgba(212,168,32,0.18)",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 0,
-        }}
-      >
-        {[
-          { label: "TIPO", value: "Ciudadano" },
-          { label: "ESTADO", value: "● Activo" },
-        ].map(({ label, value }, i) => (
-          <div
-            key={label}
-            style={{
-              padding: "10px 14px",
-              borderRight: i === 0 ? "1px solid rgba(212,168,32,0.18)" : "none",
-            }}
-          >
-            <p
-              style={{
-                fontSize: "0.55rem",
-                letterSpacing: "0.25em",
-                textTransform: "uppercase",
-                color: "rgba(212,168,32,0.45)",
-                fontFamily: "var(--font-heading), sans-serif",
-                marginBottom: "2px",
-              }}
-            >
-              {label}
-            </p>
-            <p
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 600,
-                color: "var(--gold)",
-                fontFamily: "var(--font-heading), sans-serif",
-              }}
-            >
-              {value}
-            </p>
+      {/* bullets */}
+      <div style={{
+        position:"relative", zIndex:2,
+        margin:"0 12px 10px",
+        borderTop:"1px solid rgba(212,168,32,0.15)",
+        paddingTop:10,
+      }}>
+        <div style={{ fontSize:8, letterSpacing:"0.14em", color:"rgba(212,168,32,0.6)",
+          textTransform:"uppercase", marginBottom:7 }}>
+          Puedes denunciar
+        </div>
+        {denounceable.map(({ icon: Icon, text }, i) => (
+          <div key={i} style={{ display:"flex", gap:7, marginBottom:6, alignItems:"flex-start" }}>
+            <Icon size={10} color="rgba(212,168,32,0.7)" style={{ flexShrink:0, marginTop:2 }} />
+            <span style={{ fontSize:10, color:"rgba(255,255,255,0.65)", lineHeight:1.45 }}>{text}</span>
           </div>
         ))}
       </div>
+
+      {/* footer */}
+      <div style={{
+        position:"relative", zIndex:2,
+        padding:"8px 16px 10px",
+        borderTop:"1px solid rgba(212,168,32,0.15)",
+        display:"flex", justifyContent:"space-between",
+      }}>
+        <span style={{ fontSize:9, color:"rgba(212,168,32,0.55)",
+          textTransform:"uppercase", letterSpacing:"0.1em" }}>TIPO: Ciudadano</span>
+        <span style={{ fontSize:9, color:"rgba(212,168,32,0.55)",
+          textTransform:"uppercase", letterSpacing:"0.1em" }}>
+          <span style={{ color:"#4ade80" }}>●</span> Activo
+        </span>
+      </div>
+
+      {/* scanlines overlay */}
+      <div style={{
+        position:"absolute", inset:0, borderRadius:4, pointerEvents:"none", zIndex:3,
+        background:"repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px)",
+      }} />
     </div>
   );
 }
 
-// ─── Page Component ───────────────────────────────────────────────────────────
-
-export default function HomePage() {
+/* ═══════════════════════════════════════════════════════════════════════════
+   NAVBAR
+═══════════════════════════════════════════════════════════════════════════ */
+function Navbar() {
   const [scrolled, setScrolled] = useState(false);
-  const [reports, setReports] = useState<Report[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const [form, setForm] = useState({
-    title: "",
-    category: categories[0],
-    location: "",
-    summary: "",
-  });
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 48);
-    window.addEventListener("scroll", onScroll, { passive: true });
+    const onScroll = () => setScrolled(window.scrollY > 60);
+    window.addEventListener("scroll", onScroll, { passive:true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const res = await fetch("/api/reports");
-        const data = (await res.json()) as { reports: Report[] };
-        setReports(data.reports);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setSubmitting(true);
-    setFeedback(null);
-    try {
-      const res = await fetch("/api/reports", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = (await res.json()) as { message: string; report?: Report };
-      if (!res.ok || !data.report) {
-        setFeedback({ type: "error", message: data.message });
-        return;
-      }
-      setReports((prev) => [data.report as Report, ...prev]);
-      setForm({ title: "", category: categories[0], location: "", summary: "" });
-      setFeedback({ type: "success", message: data.message });
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  // ─── Render ─────────────────────────────────────────────────────────────────
-
   return (
-    <>
-      {/* ════════════════════════════════════════════
-          NAVBAR
-      ════════════════════════════════════════════ */}
-      <nav
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 50,
-          transition: "background 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease",
-          background: scrolled ? "rgba(247,249,245,0.90)" : "transparent",
-          backdropFilter: scrolled ? "blur(16px)" : "none",
-          borderBottom: scrolled
-            ? "1px solid rgba(0,87,42,0.10)"
-            : "1px solid transparent",
-          boxShadow: scrolled ? "0 1px 12px rgba(0,0,0,0.06)" : "none",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1280px",
-            margin: "0 auto",
-            padding: "0 2.5rem",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            height: "64px",
-          }}
-        >
-          {/* Brand */}
-          <div>
-            <p
-              style={{
-                fontSize: "0.625rem",
-                letterSpacing: "0.28em",
-                textTransform: "uppercase",
-                fontWeight: 600,
-                color: scrolled ? "#8aa090" : "rgba(255,255,255,0.45)",
-                transition: "color 0.3s",
-                fontFamily: "var(--font-heading), sans-serif",
-              }}
-            >
-              Canal Ciudadano · Antioquia
-            </p>
-            <p
-              style={{
-                fontSize: "0.875rem",
-                fontWeight: 700,
-                color: scrolled ? "var(--dark)" : "#fff",
-                transition: "color 0.3s",
-                fontFamily: "var(--font-heading), sans-serif",
-                letterSpacing: "-0.01em",
-              }}
-            >
-              com<span style={{ color: scrolled ? "var(--gold)" : "var(--gold-bright)" }}>BATE</span> la Corrupción
-            </p>
-          </div>
+    <nav className={`navbar ${scrolled ? "navbar-scrolled" : ""}`}>
+      <div style={{
+        maxWidth:1200, margin:"0 auto",
+        padding:"0 32px",
+        height:64,
+        display:"flex", alignItems:"center", justifyContent:"space-between",
+      }}>
+        {/* Brand */}
+        <a href="#" style={{ textDecoration:"none" }}>
+          <span style={{
+            fontFamily:"var(--font-heading)", fontWeight:700, fontSize:18,
+            color: scrolled ? "#111810" : "white",
+            letterSpacing:"-0.02em", transition:"color 0.3s",
+          }}>
+            com<span style={{ color:"var(--gold)" }}>BATE</span>
+            <span style={{
+              marginLeft:8, fontSize:10, fontWeight:500,
+              letterSpacing:"0.08em", textTransform:"uppercase",
+              color: scrolled ? "var(--text-muted)" : "rgba(255,255,255,0.5)",
+            }}>
+              Vigilancia Ciudadana
+            </span>
+          </span>
+        </a>
 
-          {/* Desktop links */}
-          <div
-            style={{
-              display: "flex",
-              gap: "2rem",
-              fontSize: "0.875rem",
-              fontWeight: 500,
-              color: scrolled ? "#546a5c" : "rgba(255,255,255,0.78)",
-              transition: "color 0.3s",
-            }}
-            className="hidden md:flex"
-          >
-            {[
-              { label: "El Portal", href: "#portal" },
-              { label: "Denunciar", href: "#denuncia" },
-              { label: "Reportes", href: "#reportes" },
-            ].map(({ label, href }) => (
-              <a
-                key={href}
-                href={href}
-                style={{ transition: "color 0.2s" }}
-                onMouseEnter={(e) =>
-                  ((e.target as HTMLAnchorElement).style.color = "var(--gold)")
-                }
-                onMouseLeave={(e) =>
-                  ((e.target as HTMLAnchorElement).style.color = scrolled
-                    ? "#546a5c"
-                    : "rgba(255,255,255,0.78)")
-                }
-              >
-                {label}
-              </a>
-            ))}
-          </div>
+        {/* Links */}
+        <div style={{ display:"flex", alignItems:"center", gap:32 }}>
+          {[
+            { label:"Cómo funciona", href:"#como-funciona" },
+            { label:"Denunciar", href:"#denuncia" },
+            { label:"Reportes", href:"#reportes" },
+          ].map(({ label, href }) => (
+            <a
+              key={href}
+              href={href}
+              style={{
+                fontFamily:"var(--font-heading)", fontSize:13, fontWeight:500,
+                color: scrolled ? "var(--text-muted)" : "rgba(255,255,255,0.70)",
+                textDecoration:"none", transition:"color 0.2s",
+              }}
+              onMouseEnter={e => ((e.target as HTMLAnchorElement).style.color = "var(--gold)")}
+              onMouseLeave={e => ((e.target as HTMLAnchorElement).style.color =
+                scrolled ? "var(--text-muted)" : "rgba(255,255,255,0.70)")}
+            >
+              {label}
+            </a>
+          ))}
 
-          {/* CTA */}
           <a
             href="#denuncia"
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-              background: "var(--gold)",
-              color: "var(--dark)",
-              padding: "8px 20px",
-              borderRadius: "999px",
-              fontSize: "0.8125rem",
-              fontWeight: 700,
-              fontFamily: "var(--font-heading), sans-serif",
-              transition: "background 0.2s",
-              letterSpacing: "-0.01em",
+              fontFamily:"var(--font-heading)", fontWeight:600, fontSize:13,
+              background:"var(--gold)", color:"#111", textDecoration:"none",
+              padding:"9px 20px", borderRadius:6,
+              transition:"background 0.2s, transform 0.15s",
+              display:"inline-block",
             }}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLAnchorElement).style.background =
-                "var(--gold-bright)")
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLAnchorElement).style.background =
-                "var(--gold)")
-            }
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLAnchorElement).style.background = "var(--gold-bright)";
+              (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLAnchorElement).style.background = "var(--gold)";
+              (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(0)";
+            }}
           >
-            Denunciar <ArrowRight style={{ width: 13, height: 13 }} />
+            Hacer una denuncia
           </a>
         </div>
-      </nav>
+      </div>
+    </nav>
+  );
+}
 
-      <main>
-        {/* ════════════════════════════════════════════
-            HERO — dark green, atmospheric, full-height
-        ════════════════════════════════════════════ */}
-        <section
-          style={{
-            position: "relative",
-            minHeight: "100svh",
-            background: "var(--dark)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            paddingTop: "64px",
-          }}
-        >
-          {/* Background layers */}
-          <div aria-hidden="true" className="hero-dot-grid" />
-          <div
-            aria-hidden="true"
-            className="hero-glow-gold anim-glow"
-            style={{ top: "22%", left: "-4%" }}
-          />
-          <div
-            aria-hidden="true"
-            className="hero-glow-green"
-            style={{ top: "-15%", right: "5%" }}
-          />
-          <div aria-hidden="true" className="hero-fade-bottom" />
+/* ═══════════════════════════════════════════════════════════════════════════
+   REPORT FORM
+═══════════════════════════════════════════════════════════════════════════ */
+function ReportForm() {
+  const [form, setForm] = useState({ title:"", category:"", location:"", summary:"" });
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const [sending, setSending] = useState(false);
 
-          {/* Main content */}
-          <div
-            style={{
-              flex: 1,
-              maxWidth: "1280px",
-              margin: "0 auto",
-              width: "100%",
-              padding: "0 2.5rem",
-              display: "flex",
-              alignItems: "center",
-            }}
-          >
-            <div
-              style={{
-                width: "100%",
-                display: "grid",
-                gridTemplateColumns: "1fr",
-                gap: "3rem",
-                padding: "5rem 0",
-              }}
-              className="lg:grid-cols-[1.2fr_0.8fr] lg:items-center"
-            >
-              {/* ── Left: Headline ── */}
-              <div
-                className="anim-fade-up"
-                style={{ display: "flex", flexDirection: "column", gap: "2rem" }}
-              >
-                {/* Badge */}
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.title.trim() || !form.summary.trim() || !form.category) {
+      setFeedback({ type:"error", message:"Completa título, categoría y descripción." });
+      return;
+    }
+    setSending(true);
+    try {
+      const res = await fetch("/api/reports", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        setFeedback({ type:"success", message:"Denuncia recibida. Revisaremos en las próximas 24h." });
+        setForm({ title:"", category:"", location:"", summary:"" });
+      } else {
+        setFeedback({ type:"error", message:"Error al enviar. Intenta de nuevo." });
+      }
+    } catch {
+      setFeedback({ type:"error", message:"Sin conexión. Revisa tu red." });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <section id="denuncia" style={{
+      background:"var(--bg-alt)",
+      padding:"96px 32px",
+    }}>
+      <div style={{ maxWidth:1100, margin:"0 auto" }}>
+
+        {/* section header */}
+        <div style={{ textAlign:"center", marginBottom:56 }}>
+          <div className="section-label-light" style={{ marginBottom:16 }}>
+            Formulario de denuncia
+          </div>
+          <h2 style={{
+            fontFamily:"var(--font-heading)", fontSize:"clamp(32px,4vw,48px)",
+            fontWeight:700, color:"var(--text)", letterSpacing:"-0.03em", lineHeight:1.15,
+          }}>
+            Habla. Nosotros<br />
+            <span style={{ color:"var(--green-deep)" }}>escuchamos.</span>
+          </h2>
+          <p style={{
+            marginTop:16, fontSize:16, color:"var(--text-muted)",
+            maxWidth:500, margin:"16px auto 0", lineHeight:1.7,
+          }}>
+            No necesitas cuenta, nombre ni cédula. Tu relato pasa por
+            moderación antes de publicarse.
+          </p>
+        </div>
+
+        {/* two-column layout */}
+        <div style={{
+          display:"grid",
+          gridTemplateColumns:"1fr 1.6fr",
+          gap:40,
+          alignItems:"start",
+        }}>
+
+          {/* left: context panel */}
+          <div style={{
+            background:"var(--dark)",
+            borderRadius:16,
+            padding:32,
+            color:"white",
+          }}>
+            <div style={{
+              fontFamily:"var(--font-heading)", fontSize:11, fontWeight:600,
+              letterSpacing:"0.12em", textTransform:"uppercase",
+              color:"var(--gold)", marginBottom:20,
+            }}>
+              Antes de denunciar
+            </div>
+
+            <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+              {[
+                { icon:Lock, title:"Total anonimato",
+                  desc:"No almacenamos IP ni datos de sesión. Evita incluir tu nombre dentro del texto." },
+                { icon:CheckCircle, title:"Moderación previa",
+                  desc:"Cada reporte es revisado antes de publicarse para proteger procesos legales activos." },
+                { icon:FileText, title:"Complementa con canales oficiales",
+                  desc:"Esta plataforma es veeduría ciudadana, no reemplaza fiscalía o procuraduría." },
+              ].map(({ icon: Icon, title, desc }) => (
+                <div key={title} style={{ display:"flex", gap:14, alignItems:"flex-start" }}>
+                  <div style={{
+                    flexShrink:0, width:36, height:36, borderRadius:8,
+                    background:"rgba(212,168,32,0.12)", border:"1px solid rgba(212,168,32,0.2)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                  }}>
+                    <Icon size={16} color="var(--gold)" />
+                  </div>
+                  <div>
+                    <div style={{ fontFamily:"var(--font-heading)", fontWeight:600,
+                      fontSize:13, color:"white", marginBottom:4 }}>{title}</div>
+                    <div style={{ fontSize:12, color:"rgba(255,255,255,0.55)", lineHeight:1.6 }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* right: form */}
+          <div style={{
+            background:"var(--surface)",
+            borderRadius:16,
+            padding:36,
+            boxShadow:"var(--shadow-card)",
+            border:"1px solid var(--border)",
+          }}>
+            <form onSubmit={handleSubmit} style={{ display:"flex", flexDirection:"column", gap:20 }}>
+
+              {/* title */}
+              <div>
+                <label style={{ fontFamily:"var(--font-heading)", fontSize:12, fontWeight:600,
+                  color:"var(--text-muted)", letterSpacing:"0.06em",
+                  textTransform:"uppercase", display:"block", marginBottom:8 }}>
+                  Título del hecho *
+                </label>
+                <input
+                  className="field-input"
+                  placeholder="Ej. Contrato sin licitación en Municipio X"
+                  value={form.title}
+                  onChange={e => setForm(p => ({ ...p, title:e.target.value }))}
+                />
+              </div>
+
+              {/* category + location */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
                 <div>
-                  <span
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      border: "1px solid rgba(212,168,32,0.32)",
-                      background: "rgba(212,168,32,0.09)",
-                      padding: "6px 16px",
-                      borderRadius: "999px",
-                      fontSize: "0.68rem",
-                      fontWeight: 600,
-                      letterSpacing: "0.22em",
-                      textTransform: "uppercase",
-                      color: "var(--gold-bright)",
-                      fontFamily: "var(--font-heading), sans-serif",
-                    }}
+                  <label style={{ fontFamily:"var(--font-heading)", fontSize:12, fontWeight:600,
+                    color:"var(--text-muted)", letterSpacing:"0.06em",
+                    textTransform:"uppercase", display:"block", marginBottom:8 }}>
+                    Categoría *
+                  </label>
+                  <select
+                    className="field-input"
+                    value={form.category}
+                    onChange={e => setForm(p => ({ ...p, category:e.target.value }))}
                   >
-                    <span
-                      style={{
-                        width: 7,
-                        height: 7,
-                        borderRadius: "50%",
-                        background: "var(--gold)",
-                        display: "inline-block",
-                        animation: "glowPulse 2s ease-in-out infinite",
-                      }}
-                    />
-                    Portal Cívico · Antioquia · Veeduría Ciudadana
+                    <option value="">Seleccionar...</option>
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontFamily:"var(--font-heading)", fontSize:12, fontWeight:600,
+                    color:"var(--text-muted)", letterSpacing:"0.06em",
+                    textTransform:"uppercase", display:"block", marginBottom:8 }}>
+                    Zona / Municipio
+                  </label>
+                  <input
+                    className="field-input"
+                    placeholder="Ej. Bello, Antioquia"
+                    value={form.location}
+                    onChange={e => setForm(p => ({ ...p, location:e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              {/* summary */}
+              <div>
+                <label style={{ fontFamily:"var(--font-heading)", fontSize:12, fontWeight:600,
+                  color:"var(--text-muted)", letterSpacing:"0.06em",
+                  textTransform:"uppercase", display:"block", marginBottom:8 }}>
+                  Descripción *
+                </label>
+                <textarea
+                  className="field-textarea"
+                  rows={6}
+                  placeholder="Describe el hecho con el mayor detalle posible: fechas, lugares, personas involucradas (sin revelar tu identidad), documentos o evidencias que sustenten el caso."
+                  value={form.summary}
+                  onChange={e => setForm(p => ({ ...p, summary:e.target.value }))}
+                />
+              </div>
+
+              {/* legal notice */}
+              <p style={{ fontSize:11, color:"var(--text-muted)", lineHeight:1.6,
+                padding:"12px 14px", background:"var(--bg-alt)", borderRadius:8,
+                borderLeft:"3px solid var(--gold)" }}>
+                Al enviar confirmas que la información es verídica según tu conocimiento.
+                Los reportes con datos falsos o que afecten procesos legales activos
+                no serán publicados.
+              </p>
+
+              {/* feedback */}
+              {feedback && (
+                <div style={{
+                  display:"flex", gap:10, alignItems:"flex-start",
+                  padding:"12px 16px", borderRadius:8,
+                  background: feedback.type === "success"
+                    ? "rgba(0,87,42,0.08)" : "rgba(200,40,40,0.08)",
+                  border: `1px solid ${feedback.type === "success"
+                    ? "rgba(0,87,42,0.2)" : "rgba(200,40,40,0.2)"}`,
+                }}>
+                  {feedback.type === "success"
+                    ? <CheckCircle size={16} color="#00572a" style={{ flexShrink:0, marginTop:1 }} />
+                    : <AlertCircle size={16} color="#c82828" style={{ flexShrink:0, marginTop:1 }} />
+                  }
+                  <span style={{ fontSize:13, color: feedback.type === "success" ? "#00572a" : "#c82828" }}>
+                    {feedback.message}
                   </span>
                 </div>
+              )}
 
-                {/* H1 */}
-                <h1
-                  style={{
-                    fontSize: "clamp(3.2rem, 7vw, 5.5rem)",
-                    color: "#fff",
-                    lineHeight: 1.04,
-                    letterSpacing: "-0.03em",
-                    maxWidth: "680px",
-                  }}
-                >
-                  com
-                  <span style={{ color: "var(--gold)" }}>BATE</span>
-                  <br />
-                  la corrupción.
-                </h1>
-
-                {/* Subtitle */}
-                <p
-                  style={{
-                    fontSize: "1.125rem",
-                    color: "#7a9080",
-                    lineHeight: 1.75,
-                    maxWidth: "520px",
-                  }}
-                >
-                  Plataforma de vigilancia ciudadana: perfil público del concejal{" "}
-                  <span style={{ color: "#d4e8da", fontWeight: 500 }}>
-                    Andrés Gury Rodríguez
-                  </span>{" "}
-                  y canal de denuncia anónima con revisión editorial independiente.
-                </p>
-
-                {/* CTAs */}
-                <div
-                  style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}
-                >
-                  <a
-                    href="#denuncia"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      background: "var(--gold)",
-                      color: "var(--dark)",
-                      padding: "14px 28px",
-                      borderRadius: "999px",
-                      fontWeight: 700,
-                      fontSize: "0.9375rem",
-                      fontFamily: "var(--font-heading), sans-serif",
-                      transition: "background 0.2s, transform 0.15s",
-                      letterSpacing: "-0.01em",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLAnchorElement).style.background =
-                        "var(--gold-bright)";
-                      (e.currentTarget as HTMLAnchorElement).style.transform =
-                        "translateY(-1px)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLAnchorElement).style.background =
-                        "var(--gold)";
-                      (e.currentTarget as HTMLAnchorElement).style.transform =
-                        "translateY(0)";
-                    }}
-                  >
-                    Hacer una denuncia
-                    <ArrowRight style={{ width: 16, height: 16 }} />
-                  </a>
-                  <a
-                    href="#reportes"
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      border: "1px solid rgba(255,255,255,0.18)",
-                      color: "#fff",
-                      padding: "14px 28px",
-                      borderRadius: "999px",
-                      fontWeight: 600,
-                      fontSize: "0.9375rem",
-                      fontFamily: "var(--font-heading), sans-serif",
-                      transition: "border-color 0.2s, background 0.2s",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                        "rgba(255,255,255,0.38)";
-                      (e.currentTarget as HTMLAnchorElement).style.background =
-                        "rgba(255,255,255,0.05)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                        "rgba(255,255,255,0.18)";
-                      (e.currentTarget as HTMLAnchorElement).style.background =
-                        "transparent";
-                    }}
-                  >
-                    Ver reportes
-                    <ChevronRight style={{ width: 15, height: 15 }} />
-                  </a>
-                </div>
-
-                {/* Mobile metrics */}
-                <div
-                  className="lg:hidden"
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gap: "1rem",
-                    borderTop: "1px solid rgba(255,255,255,0.09)",
-                    paddingTop: "1.5rem",
-                  }}
-                >
-                  {metrics.map((m) => (
-                    <div key={m.label}>
-                      <p
-                        style={{
-                          fontSize: "1.75rem",
-                          fontWeight: 700,
-                          color: "var(--gold)",
-                          fontFamily: "var(--font-heading), sans-serif",
-                          letterSpacing: "-0.03em",
-                        }}
-                      >
-                        {m.value}
-                      </p>
-                      <p
-                        style={{
-                          fontSize: "0.72rem",
-                          color: "#546a5c",
-                          marginTop: "4px",
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {m.label}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* ── Right: 3D Bat HUD + denounceable list ── */}
-              <div
-                className="anim-fade-up-2 hidden lg:flex"
+              {/* submit */}
+              <button
+                type="submit"
+                disabled={sending}
                 style={{
-                  flexDirection: "column",
-                  gap: "1.25rem",
-                  alignItems: "center",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:8,
+                  background: sending ? "rgba(212,168,32,0.5)" : "var(--gold)",
+                  color:"#111", border:"none", borderRadius:8,
+                  fontFamily:"var(--font-heading)", fontWeight:700, fontSize:14,
+                  padding:"14px 24px", cursor: sending ? "not-allowed" : "pointer",
+                  transition:"background 0.2s, transform 0.15s",
                 }}
+                onMouseEnter={e => { if (!sending) (e.currentTarget as HTMLButtonElement).style.background = "var(--gold-bright)"; }}
+                onMouseLeave={e => { if (!sending) (e.currentTarget as HTMLButtonElement).style.background = "var(--gold)"; }}
               >
-                {/* 3D Bat game card */}
-                <BatHUD />
-
-                {/* What citizens can denounce */}
-                <div
-                  style={{
-                    width: "100%",
-                    maxWidth: "300px",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    background: "rgba(255,255,255,0.03)",
-                    borderRadius: "14px",
-                    padding: "16px 18px",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "12px",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "0.6rem",
-                      letterSpacing: "0.26em",
-                      textTransform: "uppercase",
-                      color: "var(--gold-bright)",
-                      fontWeight: 600,
-                      fontFamily: "var(--font-heading), sans-serif",
-                    }}
-                  >
-                    Puedes denunciar
-                  </p>
-                  {denounceable.map(({ icon: Icon, text }) => (
-                    <div
-                      key={text}
-                      style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}
-                    >
-                      <Icon
-                        style={{
-                          width: 14,
-                          height: 14,
-                          color: "var(--gold)",
-                          flexShrink: 0,
-                          marginTop: "2px",
-                        }}
-                      />
-                      <p
-                        style={{
-                          fontSize: "0.8125rem",
-                          color: "rgba(255,255,255,0.62)",
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        {text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+                <Send size={15} />
+                {sending ? "Enviando..." : "Enviar denuncia anónima"}
+              </button>
+            </form>
           </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
-          {/* Desktop metrics strip */}
-          <div
-            className="hidden lg:block"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.09)" }}
-          >
-            <div
-              style={{
-                maxWidth: "1280px",
-                margin: "0 auto",
-                padding: "0 2.5rem",
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-              }}
-            >
-              {metrics.map((m, i) => (
-                <div
-                  key={m.label}
-                  className="anim-fade-up-3"
-                  style={{
-                    padding: "2rem 0",
-                    borderRight:
-                      i < 2 ? "1px solid rgba(255,255,255,0.09)" : "none",
-                    paddingRight: i < 2 ? "2rem" : 0,
-                    paddingLeft: i > 0 ? "2rem" : 0,
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: "2.25rem",
-                      fontWeight: 700,
-                      color: "var(--gold)",
-                      fontFamily: "var(--font-heading), sans-serif",
-                      letterSpacing: "-0.035em",
-                    }}
-                  >
-                    {m.value}
-                  </p>
-                  <p style={{ fontSize: "0.8125rem", color: "#546a5c", marginTop: "6px" }}>
-                    {m.label}
-                  </p>
-                </div>
-              ))}
+/* ═══════════════════════════════════════════════════════════════════════════
+   REPORTS FEED
+═══════════════════════════════════════════════════════════════════════════ */
+function ReportsFeed() {
+  const [reports, setReports]     = useState<Report[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [expanded, setExpanded]   = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/reports")
+      .then(r => r.json())
+      .then(d => { setReports(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const statusMeta: Record<string, { label:string; cls:string }> = {
+    pending:   { label:"Pendiente",  cls:"badge-pending"   },
+    review:    { label:"En revisión",cls:"badge-review"    },
+    published: { label:"Publicado",  cls:"badge-published" },
+    closed:    { label:"Cerrado",    cls:"badge-closed"    },
+  };
+
+  const timeAgo = (iso: string) => {
+    const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 3600)  return `hace ${Math.floor(diff/60)}m`;
+    if (diff < 86400) return `hace ${Math.floor(diff/3600)}h`;
+    return `hace ${Math.floor(diff/86400)}d`;
+  };
+
+  return (
+    <section id="reportes" style={{ padding:"96px 32px", background:"var(--bg)" }}>
+      <div style={{ maxWidth:900, margin:"0 auto" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:48 }}>
+          <div>
+            <div className="section-label-light" style={{ marginBottom:14 }}>
+              Reportes ciudadanos
             </div>
+            <h2 style={{
+              fontFamily:"var(--font-heading)", fontSize:"clamp(28px,3.5vw,40px)",
+              fontWeight:700, color:"var(--text)", letterSpacing:"-0.025em",
+            }}>
+              Casos en seguimiento
+            </h2>
           </div>
-        </section>
-
-        {/* ════════════════════════════════════════════
-            PROFILE SECTION
-        ════════════════════════════════════════════ */}
-        <section id="portal" style={{ background: "var(--surface)", padding: "6rem 0" }}>
-          <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 2.5rem" }}>
-            <div style={{ marginBottom: "3.5rem", maxWidth: "640px" }}>
-              <p className="section-label" style={{ marginBottom: "12px" }}>
-                Sobre la plataforma
-              </p>
-              <h2 style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--dark)" }}>
-                Un espacio cívico de información y control social.
-              </h2>
-            </div>
-
-            <div
-              style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2rem" }}
-              className="lg:grid-cols-2"
-            >
-              {/* Profile narrative */}
-              <div
-                style={{
-                  background: "var(--dark)",
-                  borderRadius: "20px",
-                  padding: "2.25rem",
-                  color: "#fff",
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: "0.65rem",
-                    letterSpacing: "0.28em",
-                    textTransform: "uppercase",
-                    color: "var(--gold)",
-                    fontWeight: 600,
-                    fontFamily: "var(--font-heading), sans-serif",
-                    marginBottom: "12px",
-                  }}
-                >
-                  Perfil público
-                </p>
-                <h3 style={{ fontSize: "1.5rem", color: "#fff", marginBottom: "1.25rem" }}>
-                  Andrés Gury Rodríguez, concejal
-                </h3>
-                <p style={{ fontSize: "0.9375rem", color: "#7a9080", lineHeight: 1.75, marginBottom: "2rem" }}>
-                  Esta página propone una lectura informativa: agenda pública,
-                  compromisos anunciados y apertura a denuncias ciudadanas. La
-                  figura del concejal aparece como impulsor de vigilancia pública,
-                  no como sustituto de autoridades ni juez de los casos reportados.
-                </p>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {[
-                    { icon: Users, label: "Posición", value: "Concejal municipal en ejercicio" },
-                    { icon: FileText, label: "Agenda", value: "Transparencia y control ciudadano" },
-                    { icon: CheckCircle, label: "Canal", value: "Denuncia anónima habilitada" },
-                  ].map(({ icon: Icon, label, value }) => (
-                    <div
-                      key={label}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "14px",
-                        border: "1px solid rgba(255,255,255,0.07)",
-                        background: "rgba(255,255,255,0.04)",
-                        borderRadius: "12px",
-                        padding: "12px 16px",
-                      }}
-                    >
-                      <Icon style={{ width: 15, height: 15, color: "var(--gold-bright)", flexShrink: 0 }} />
-                      <div>
-                        <p
-                          style={{
-                            fontSize: "0.625rem",
-                            letterSpacing: "0.2em",
-                            textTransform: "uppercase",
-                            color: "#3a5040",
-                            fontWeight: 600,
-                            fontFamily: "var(--font-heading), sans-serif",
-                          }}
-                        >
-                          {label}
-                        </p>
-                        <p style={{ fontSize: "0.875rem", color: "#c8ddd0", fontWeight: 500, marginTop: "2px" }}>
-                          {value}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Commitments */}
-              <div>
-                <p className="section-label" style={{ marginBottom: "1.5rem" }}>
-                  Compromisos visibles
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: "14px", marginBottom: "20px" }}>
-                  {commitments.map((c, i) => (
-                    <div
-                      key={i}
-                      className="card-lift"
-                      style={{
-                        display: "flex",
-                        gap: "16px",
-                        border: "1px solid var(--border)",
-                        background: "var(--surface)",
-                        borderRadius: "16px",
-                        padding: "20px 22px",
-                        boxShadow: "var(--shadow-sm)",
-                        cursor: "default",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: "50%",
-                          background: "rgba(212,168,32,0.12)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "0.75rem",
-                          fontWeight: 700,
-                          color: "#9a7018",
-                          fontFamily: "var(--font-heading), sans-serif",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {String(i + 1).padStart(2, "0")}
-                      </div>
-                      <p style={{ fontSize: "0.9375rem", color: "#546a5c", lineHeight: 1.7 }}>
-                        {c}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <div
-                  style={{
-                    background: "#fffbeb",
-                    border: "1px solid rgba(217,119,6,0.20)",
-                    borderRadius: "14px",
-                    padding: "18px 20px",
-                    display: "flex",
-                    gap: "12px",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <AlertCircle style={{ width: 17, height: 17, color: "#d97706", flexShrink: 0, marginTop: "2px" }} />
-                  <div>
-                    <p style={{ fontSize: "0.8125rem", fontWeight: 600, color: "#92400e", marginBottom: "4px" }}>
-                      Aviso editorial
-                    </p>
-                    <p style={{ fontSize: "0.8125rem", color: "#b45309", lineHeight: 1.6 }}>
-                      El portal no representa a la administración municipal. Es una
-                      iniciativa de veeduría ciudadana con criterio editorial independiente.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div style={{
+            display:"flex", alignItems:"center", gap:8,
+            fontFamily:"var(--font-heading)", fontSize:12, color:"var(--text-muted)",
+          }}>
+            <Users size={14} />
+            <span>{reports.length} reportes</span>
           </div>
-        </section>
+        </div>
 
-        {/* ════════════════════════════════════════════
-            HOW IT WORKS
-        ════════════════════════════════════════════ */}
-        <section style={{ background: "var(--bg-alt)", padding: "6rem 0" }}>
-          <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 2.5rem" }}>
-            <div style={{ marginBottom: "3.5rem", maxWidth: "600px" }}>
-              <p className="section-label" style={{ marginBottom: "12px" }}>Cómo funciona</p>
-              <h2 style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--dark)" }}>
-                Tres pasos para activar la vigilancia.
-              </h2>
-            </div>
-
-            <div
-              style={{ display: "grid", gridTemplateColumns: "1fr", gap: "1.5rem" }}
-              className="lg:grid-cols-3"
-            >
-              {steps.map((step, i) => (
+        {loading ? (
+          <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+            {[1,2,3].map(i => (
+              <div key={i} style={{
+                background:"var(--surface)", borderRadius:12, padding:24,
+                border:"1px solid var(--border)",
+              }}>
+                <div className="skeleton" style={{ height:16, width:"60%", marginBottom:12 }} />
+                <div className="skeleton" style={{ height:12, width:"40%", marginBottom:8 }} />
+                <div className="skeleton" style={{ height:12, width:"80%" }} />
+              </div>
+            ))}
+          </div>
+        ) : reports.length === 0 ? (
+          <div style={{
+            textAlign:"center", padding:"64px 32px",
+            color:"var(--text-muted)", fontFamily:"var(--font-heading)",
+          }}>
+            Aún no hay reportes publicados.
+          </div>
+        ) : (
+          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            {reports.map(r => {
+              const meta = statusMeta[r.status] ?? { label:r.status, cls:"badge-closed" };
+              const open = expanded === r.id;
+              return (
                 <div
-                  key={step.number}
+                  key={r.id}
                   className="card-lift"
                   style={{
-                    position: "relative",
-                    border: "1px solid var(--border)",
-                    background: "var(--surface)",
-                    borderRadius: "20px",
-                    padding: "2rem",
-                    boxShadow: "var(--shadow-sm)",
-                    cursor: "default",
+                    background:"var(--surface)", borderRadius:12,
+                    border:"1px solid var(--border)",
+                    overflow:"hidden",
+                    transition:"border-color 0.2s, box-shadow 0.2s, transform 0.2s",
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(0,87,42,0.25)";
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)";
                   }}
                 >
-                  <div
+                  <button
+                    onClick={() => setExpanded(open ? null : r.id)}
                     style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      marginBottom: "1rem",
+                      width:"100%", background:"none", border:"none",
+                      padding:"20px 24px",
+                      display:"flex", alignItems:"center", justifyContent:"space-between",
+                      cursor:"pointer", textAlign:"left",
                     }}
                   >
-                    <p
-                      style={{
-                        fontSize: "3.5rem",
-                        fontWeight: 700,
-                        color: "#e8ede5",
-                        fontFamily: "var(--font-heading), sans-serif",
-                        lineHeight: 1,
-                        letterSpacing: "-0.04em",
-                      }}
-                    >
-                      {step.number}
-                    </p>
-                    <div
-                      style={{
-                        width: 42,
-                        height: 42,
-                        background: "var(--dark)",
-                        borderRadius: "12px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <step.icon style={{ width: 18, height: 18, color: "var(--gold-bright)" }} />
-                    </div>
-                  </div>
-                  <h3 style={{ fontSize: "1.25rem", color: "var(--dark)", marginBottom: "12px" }}>
-                    {step.title}
-                  </h3>
-                  <p style={{ fontSize: "0.9375rem", color: "var(--text-muted)", lineHeight: 1.7 }}>
-                    {step.description}
-                  </p>
-                  {i < 2 && (
-                    <div
-                      className="hidden lg:flex"
-                      style={{
-                        position: "absolute",
-                        right: "-20px",
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        zIndex: 10,
-                        width: 36,
-                        height: 36,
-                        border: "1px solid var(--border)",
-                        background: "#fff",
-                        borderRadius: "50%",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxShadow: "var(--shadow-sm)",
-                      }}
-                    >
-                      <ChevronRight style={{ width: 14, height: 14, color: "#94a3b8" }} />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ════════════════════════════════════════════
-            ANONYMOUS REPORT FORM
-        ════════════════════════════════════════════ */}
-        <section id="denuncia" style={{ background: "var(--dark)", padding: "6rem 0" }}>
-          <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 2.5rem" }}>
-            <div style={{ marginBottom: "3.5rem", maxWidth: "640px" }}>
-              <p className="section-label-light" style={{ marginBottom: "12px" }}>
-                Canal de denuncia
-              </p>
-              <h2 style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "#fff" }}>
-                Denuncia anónima con reglas claras.
-              </h2>
-            </div>
-
-            <div
-              style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2rem" }}
-              className="lg:grid-cols-[0.9fr_1.1fr]"
-            >
-              {/* Context panel */}
-              <div>
-                <div
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    background: "rgba(255,255,255,0.04)",
-                    borderRadius: "20px",
-                    padding: "2.25rem",
-                    marginBottom: "1rem",
-                  }}
-                >
-                  <p className="section-label-light" style={{ marginBottom: "1.75rem" }}>
-                    Antes de enviar
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                    {[
-                      {
-                        icon: Lock,
-                        title: "Tu identidad está protegida",
-                        text: "No compartas nombre, documento, dirección ni datos privados de terceros.",
-                      },
-                      {
-                        icon: AlertCircle,
-                        title: "No reemplaza canales oficiales",
-                        text: "No es fiscalía ni procuraduría. Es un espacio de control social y trazabilidad.",
-                      },
-                      {
-                        icon: Eye,
-                        title: "Moderación previa a publicación",
-                        text: "Cada reporte pasa por revisión editorial para reducir riesgo de difamación.",
-                      },
-                      {
-                        icon: Clock,
-                        title: "Tiempo estimado de revisión",
-                        text: "Meta de revisión inicial dentro de las primeras 24 horas de recibido.",
-                      },
-                    ].map(({ icon: Icon, title, text }) => (
-                      <div key={title} style={{ display: "flex", gap: "14px" }}>
-                        <div
-                          style={{
-                            width: 36,
-                            height: 36,
-                            flexShrink: 0,
-                            border: "1px solid rgba(255,255,255,0.09)",
-                            background: "rgba(255,255,255,0.05)",
-                            borderRadius: "10px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Icon style={{ width: 15, height: 15, color: "var(--gold-bright)" }} />
-                        </div>
-                        <div>
-                          <p style={{ fontSize: "0.875rem", fontWeight: 600, color: "#e2e8e0", marginBottom: "4px" }}>
-                            {title}
-                          </p>
-                          <p style={{ fontSize: "0.8125rem", color: "#546a5c", lineHeight: 1.65 }}>
-                            {text}
-                          </p>
-                        </div>
+                    <div style={{ flex:1, minWidth:0 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
+                        <span className={`badge ${meta.cls}`}>{meta.label}</span>
+                        <span style={{ fontSize:11, color:"var(--text-muted)" }}>
+                          {r.category}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    border: "1px solid rgba(212,168,32,0.22)",
-                    background: "rgba(212,168,32,0.06)",
-                    borderRadius: "14px",
-                    padding: "16px 20px",
-                    display: "flex",
-                    gap: "12px",
-                    alignItems: "center",
-                  }}
-                >
-                  <Shield style={{ width: 16, height: 16, color: "var(--gold)", flexShrink: 0 }} />
-                  <p style={{ fontSize: "0.8125rem", color: "#546a5c" }}>
-                    <span style={{ color: "var(--gold)", fontWeight: 600 }}>Confianza pública.</span>{" "}
-                    Diseño editorial con peso institucional y archivo cívico.
-                  </p>
-                </div>
-              </div>
-
-              {/* Form */}
-              <div
-                style={{
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background: "#fff",
-                  borderRadius: "20px",
-                  padding: "2.25rem",
-                }}
-              >
-                <form
-                  onSubmit={handleSubmit}
-                  style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
-                >
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "8px",
-                        fontSize: "0.875rem",
-                        fontWeight: 600,
-                        color: "var(--dark)",
-                      }}
-                    >
-                      Título breve <span style={{ color: "#dc2626" }}>*</span>
-                    </label>
-                    <input
-                      required
-                      className="field-input"
-                      value={form.title}
-                      onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-                      placeholder="Ej. Posible irregularidad en contratación de obras"
-                    />
-                  </div>
-
-                  <div
-                    style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}
-                    className="grid-cols-1 sm:grid-cols-2"
-                  >
-                    <div>
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: "8px",
-                          fontSize: "0.875rem",
-                          fontWeight: 600,
-                          color: "var(--dark)",
-                        }}
-                      >
-                        Categoría
-                      </label>
-                      <select
-                        className="field-input"
-                        value={form.category}
-                        onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
-                      >
-                        {categories.map((c) => (
-                          <option key={c}>{c}</option>
-                        ))}
-                      </select>
+                      <div style={{
+                        fontFamily:"var(--font-heading)", fontWeight:600,
+                        fontSize:15, color:"var(--text)", lineHeight:1.3,
+                      }}>
+                        {r.title}
+                      </div>
                     </div>
-                    <div>
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: "8px",
-                          fontSize: "0.875rem",
-                          fontWeight: 600,
-                          color: "var(--dark)",
-                        }}
-                      >
-                        Zona o dependencia <span style={{ color: "#dc2626" }}>*</span>
-                      </label>
-                      <input
-                        required
-                        className="field-input"
-                        value={form.location}
-                        onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))}
-                        placeholder="Ej. Comuna 3 o Secretaría de Infraestructura"
+                    <div style={{
+                      display:"flex", alignItems:"center", gap:16,
+                      flexShrink:0, marginLeft:16,
+                    }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:5,
+                        fontSize:11, color:"var(--text-muted)" }}>
+                        <Clock size={11} />
+                        {timeAgo(r.createdAt)}
+                      </div>
+                      <ChevronRight
+                        size={16}
+                        color="var(--text-muted)"
+                        style={{ transform: open ? "rotate(90deg)" : "none",
+                          transition:"transform 0.2s" }}
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "8px",
-                        fontSize: "0.875rem",
-                        fontWeight: 600,
-                        color: "var(--dark)",
-                      }}
-                    >
-                      Hechos y contexto <span style={{ color: "#dc2626" }}>*</span>
-                    </label>
-                    <textarea
-                      required
-                      className="field-textarea"
-                      value={form.summary}
-                      onChange={(e) => setForm((p) => ({ ...p, summary: e.target.value }))}
-                      placeholder="Describe qué pasó, cuándo ocurrió y qué evidencia existe. Evita nombres propios si no son indispensables."
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                      background: submitting ? "#7a9080" : "var(--dark)",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "999px",
-                      padding: "14px 28px",
-                      fontWeight: 700,
-                      fontSize: "0.9375rem",
-                      fontFamily: "var(--font-heading), sans-serif",
-                      cursor: submitting ? "not-allowed" : "pointer",
-                      transition: "background 0.2s",
-                      width: "100%",
-                      letterSpacing: "-0.01em",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!submitting)
-                        (e.currentTarget as HTMLButtonElement).style.background =
-                          "var(--green-deep)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!submitting)
-                        (e.currentTarget as HTMLButtonElement).style.background =
-                          "var(--dark)";
-                    }}
-                  >
-                    <Send style={{ width: 15, height: 15 }} />
-                    {submitting ? "Enviando denuncia..." : "Enviar denuncia anónima"}
                   </button>
 
-                  {feedback && (
-                    <div
-                      style={{
-                        borderRadius: "12px",
-                        padding: "12px 16px",
-                        fontSize: "0.875rem",
-                        lineHeight: 1.6,
-                        background: feedback.type === "success" ? "#f0fdf4" : "#fef2f2",
-                        color: feedback.type === "success" ? "#15803d" : "#dc2626",
-                        border:
-                          feedback.type === "success"
-                            ? "1px solid rgba(22,163,74,0.20)"
-                            : "1px solid rgba(220,38,38,0.20)",
-                      }}
-                    >
-                      {feedback.message}
+                  {open && (
+                    <div style={{
+                      padding:"0 24px 20px",
+                      borderTop:"1px solid var(--border)",
+                    }}>
+                      <div style={{ display:"flex", gap:16, marginBottom:12, paddingTop:16 }}>
+                        {r.location && (
+                          <span style={{ fontSize:12, color:"var(--text-muted)" }}>
+                            📍 {r.location}
+                          </span>
+                        )}
+                      </div>
+                      <p style={{
+                        fontSize:14, color:"var(--text-muted)",
+                        lineHeight:1.7, margin:0,
+                      }}>{r.summary}</p>
                     </div>
                   )}
-
-                  <p style={{ fontSize: "0.75rem", color: "#8aa090", lineHeight: 1.6 }}>
-                    Al enviar, aceptas que tu reporte será revisado editorialmente antes de
-                    publicarse. No almacenamos datos personales ni de identificación.
-                  </p>
-                </form>
-              </div>
-            </div>
+                </div>
+              );
+            })}
           </div>
-        </section>
+        )}
+      </div>
+    </section>
+  );
+}
 
-        {/* ════════════════════════════════════════════
-            REPORTS FEED
-        ════════════════════════════════════════════ */}
-        <section id="reportes" style={{ background: "var(--surface)", padding: "6rem 0" }}>
-          <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 2.5rem" }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-end",
-                justifyContent: "space-between",
-                gap: "2rem",
-                marginBottom: "3.5rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ maxWidth: "560px" }}>
-                <p className="section-label" style={{ marginBottom: "12px" }}>
-                  Reportes ciudadanos
-                </p>
-                <h2 style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--dark)" }}>
-                  Muestra pública de denuncias moderadas.
-                </h2>
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE ROOT
+═══════════════════════════════════════════════════════════════════════════ */
+export default function Home() {
+  const [faqOpen, setFaqOpen] = useState<number | null>(null);
+
+  return (
+    <>
+      <Navbar />
+      <main>
+
+        {/* ═══ HERO ══════════════════════════════════════════════════════ */}
+        <section className="hero-section">
+          {/* dot grid */}
+          <div className="dot-grid" />
+
+          {/* glow orbs */}
+          <div className="hero-glow-gold"
+            style={{ top:"-10%", left:"-5%", opacity:0.7 }} />
+          <div className="hero-glow-green"
+            style={{ bottom:"-15%", right:"-5%", opacity:0.8 }} />
+
+          <div style={{
+            position:"relative", zIndex:1,
+            maxWidth:1200, margin:"0 auto",
+            padding:"120px 32px 80px",
+            width:"100%",
+            display:"grid",
+            gridTemplateColumns:"1.15fr 1fr",
+            gap:64,
+            alignItems:"center",
+          }}>
+            {/* ── Left column ── */}
+            <div>
+              {/* label */}
+              <div className="section-label" style={{ marginBottom:28 }}>
+                <span style={{ width:6, height:6, borderRadius:"50%",
+                  background:"var(--gold)",
+                  display:"inline-block", flexShrink:0,
+                  animation:"glowPulse 2s ease infinite" }} />
+                Veeduría ciudadana · Antioquia
               </div>
-              <p style={{ maxWidth: "320px", fontSize: "0.875rem", color: "var(--text-muted)", lineHeight: 1.7 }}>
-                El feed visibiliza movimiento ciudadano real. En producción estará conectado a una
-                base de datos con flujo de moderación.
-              </p>
-            </div>
 
-            {loading ? (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.25rem" }}>
-                {[1, 2, 3].map((i) => (
-                  <div key={i} style={{ border: "1px solid var(--border)", borderRadius: "20px", padding: "1.5rem" }}>
-                    <div className="skeleton" style={{ height: 12, width: "40%", marginBottom: 16 }} />
-                    <div className="skeleton" style={{ height: 22, width: "80%", marginBottom: 10 }} />
-                    <div className="skeleton" style={{ height: 10, width: "30%", marginBottom: 20 }} />
-                    <div className="skeleton" style={{ height: 10, width: "100%", marginBottom: 6 }} />
-                    <div className="skeleton" style={{ height: 10, width: "85%", marginBottom: 6 }} />
-                    <div className="skeleton" style={{ height: 10, width: "60%" }} />
+              {/* headline */}
+              <h1 style={{
+                fontFamily:"var(--font-heading)",
+                fontSize:"clamp(44px,5.5vw,76px)",
+                fontWeight:800,
+                color:"white",
+                lineHeight:1.05,
+                letterSpacing:"-0.04em",
+                marginBottom:24,
+              }}>
+                Denuncia.<br />
+                Sin miedo.<br />
+                <span style={{ color:"var(--gold)" }}>Sin nombre.</span>
+              </h1>
+
+              {/* subtitle */}
+              <p style={{
+                fontSize:"clamp(15px,1.5vw,18px)",
+                color:"rgba(255,255,255,0.60)",
+                lineHeight:1.75,
+                maxWidth:480,
+                marginBottom:40,
+              }}>
+                Plataforma de veeduría ciudadana para reportar hechos de
+                corrupción en Antioquia. Anónima. Sin registro.
+                Con trazabilidad editorial.
+              </p>
+
+              {/* CTAs */}
+              <div style={{ display:"flex", gap:14, flexWrap:"wrap", marginBottom:52 }}>
+                <a href="#denuncia" style={{
+                  display:"inline-flex", alignItems:"center", gap:8,
+                  background:"var(--gold)", color:"#111",
+                  fontFamily:"var(--font-heading)", fontWeight:700, fontSize:14,
+                  padding:"14px 28px", borderRadius:8, textDecoration:"none",
+                  transition:"background 0.2s, transform 0.15s",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.background = "var(--gold-bright)";
+                  (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-2px)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.background = "var(--gold)";
+                  (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(0)";
+                }}>
+                  Hacer una denuncia
+                  <ArrowRight size={15} />
+                </a>
+
+                <a href="#reportes" style={{
+                  display:"inline-flex", alignItems:"center", gap:8,
+                  background:"transparent",
+                  border:"1.5px solid rgba(212,168,32,0.45)",
+                  color:"rgba(255,255,255,0.80)",
+                  fontFamily:"var(--font-heading)", fontWeight:600, fontSize:14,
+                  padding:"14px 24px", borderRadius:8, textDecoration:"none",
+                  transition:"border-color 0.2s, color 0.2s",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = "var(--gold)";
+                  (e.currentTarget as HTMLAnchorElement).style.color = "white";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.borderColor = "rgba(212,168,32,0.45)";
+                  (e.currentTarget as HTMLAnchorElement).style.color = "rgba(255,255,255,0.80)";
+                }}>
+                  Ver reportes
+                  <ChevronRight size={14} />
+                </a>
+              </div>
+
+              {/* stats */}
+              <div style={{
+                display:"flex", gap:0,
+                borderTop:"1px solid rgba(255,255,255,0.10)",
+                paddingTop:32,
+              }}>
+                {metrics.map(({ value, label }, i) => (
+                  <div key={value} style={{
+                    flex:1,
+                    paddingRight: i < metrics.length - 1 ? 28 : 0,
+                    marginRight:  i < metrics.length - 1 ? 28 : 0,
+                    borderRight:  i < metrics.length - 1
+                      ? "1px solid rgba(255,255,255,0.10)" : "none",
+                  }}>
+                    <div style={{
+                      fontFamily:"var(--font-heading)", fontWeight:800,
+                      fontSize:"clamp(22px,2.5vw,30px)",
+                      color:"var(--gold)", letterSpacing:"-0.03em", lineHeight:1,
+                    }}>
+                      {value}
+                    </div>
+                    <div style={{
+                      fontSize:11, color:"rgba(255,255,255,0.45)",
+                      marginTop:4, lineHeight:1.4, letterSpacing:"0.02em",
+                    }}>
+                      {label}
+                    </div>
                   </div>
                 ))}
               </div>
-            ) : reports.length === 0 ? (
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  border: "1.5px dashed #c8d8c0",
-                  borderRadius: "20px",
-                  padding: "5rem 2rem",
-                  textAlign: "center",
-                }}
-              >
-                <FileText style={{ width: 40, height: 40, color: "#b0c8b8", marginBottom: "1rem" }} />
-                <p style={{ fontSize: "1.0625rem", fontWeight: 600, color: "#546a5c", marginBottom: "8px" }}>
-                  Sin reportes publicados aún
-                </p>
-                <p style={{ fontSize: "0.875rem", color: "#8aa090", marginBottom: "1.5rem" }}>
-                  Sé el primero en activar la vigilancia ciudadana.
-                </p>
-                <a
-                  href="#denuncia"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    background: "var(--dark)",
-                    color: "#fff",
-                    padding: "10px 22px",
-                    borderRadius: "999px",
-                    fontSize: "0.875rem",
-                    fontWeight: 600,
-                    fontFamily: "var(--font-heading), sans-serif",
-                  }}
-                >
-                  Hacer una denuncia <ArrowRight style={{ width: 14, height: 14 }} />
-                </a>
-              </div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1.25rem" }}>
-                {reports.map((r) => (
-                  <article
-                    key={r.id}
-                    className="card-lift"
-                    style={{
-                      border: "1px solid var(--border)",
-                      background: "var(--surface)",
-                      borderRadius: "20px",
-                      padding: "1.5rem",
-                      boxShadow: "var(--shadow-sm)",
-                      cursor: "default",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        justifyContent: "space-between",
-                        gap: "10px",
-                        marginBottom: "1.25rem",
-                      }}
-                    >
-                      <span className={statusBadgeClass(r.status)}>{r.status}</span>
-                      <span style={{ fontSize: "0.75rem", color: "var(--text-light)", whiteSpace: "nowrap" }}>
-                        {r.createdAt}
-                      </span>
-                    </div>
-                    <p
-                      style={{
-                        fontSize: "0.65rem",
-                        letterSpacing: "0.2em",
-                        textTransform: "uppercase",
-                        color: "var(--text-light)",
-                        fontWeight: 600,
-                        fontFamily: "var(--font-heading), sans-serif",
-                        marginBottom: "8px",
-                      }}
-                    >
-                      {r.category}
-                    </p>
-                    <h3 style={{ fontSize: "1.0625rem", color: "var(--dark)", lineHeight: 1.35, marginBottom: "12px" }}>
-                      {r.title}
-                    </h3>
-                    <p
-                      style={{
-                        fontSize: "0.875rem",
-                        color: "var(--text-muted)",
-                        lineHeight: 1.7,
-                        marginBottom: "1.25rem",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {r.summary}
-                    </p>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "8px",
-                        borderTop: "1px solid var(--border)",
-                        paddingTop: "14px",
-                      }}
-                    >
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#b0c8b8", flexShrink: 0 }} />
-                      <p style={{ fontSize: "0.8125rem", color: "var(--text-muted)", fontWeight: 500 }}>
-                        {r.location}
-                      </p>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
+            </div>
+
+            {/* ── Right column: bat ── */}
+            <div style={{ display:"flex", justifyContent:"center" }}>
+              <BatHUD />
+            </div>
           </div>
         </section>
 
-        {/* ════════════════════════════════════════════
-            FAQ
-        ════════════════════════════════════════════ */}
-        <section style={{ background: "var(--bg-alt)", padding: "6rem 0" }}>
-          <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 2.5rem" }}>
-            <div style={{ marginBottom: "3.5rem", maxWidth: "520px" }}>
-              <p className="section-label" style={{ marginBottom: "12px" }}>Preguntas frecuentes</p>
-              <h2 style={{ fontSize: "clamp(2rem, 4vw, 3rem)", color: "var(--dark)" }}>
-                Lo que debes saber.
+        {/* ═══ HOW IT WORKS ══════════════════════════════════════════════ */}
+        <section id="como-funciona" style={{
+          background:"var(--bg)", padding:"96px 32px",
+        }}>
+          <div style={{ maxWidth:1100, margin:"0 auto" }}>
+            <div style={{ textAlign:"center", marginBottom:60 }}>
+              <div className="section-label-light" style={{ marginBottom:16 }}>
+                Proceso
+              </div>
+              <h2 style={{
+                fontFamily:"var(--font-heading)",
+                fontSize:"clamp(30px,3.5vw,46px)",
+                fontWeight:700, color:"var(--text)",
+                letterSpacing:"-0.03em", lineHeight:1.15,
+              }}>
+                Así funciona
               </h2>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1.25rem" }}>
-              {faq.map((item) => (
+
+            <div style={{
+              display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:28,
+            }}>
+              {steps.map(({ number, title, icon: Icon, description }) => (
                 <div
-                  key={item.question}
+                  key={number}
                   className="card-lift"
                   style={{
-                    border: "1px solid var(--border)",
-                    background: "var(--surface)",
-                    borderRadius: "20px",
-                    padding: "2rem",
-                    boxShadow: "var(--shadow-sm)",
-                    cursor: "default",
+                    background:"var(--surface)",
+                    border:"1px solid var(--border)",
+                    borderRadius:16, padding:32,
+                    boxShadow:"var(--shadow-card)",
+                    position:"relative", overflow:"hidden",
                   }}
                 >
-                  <h3 style={{ fontSize: "1.0625rem", color: "var(--dark)", lineHeight: 1.4, marginBottom: "1rem" }}>
-                    {item.question}
-                  </h3>
-                  <p style={{ fontSize: "0.9375rem", color: "var(--text-muted)", lineHeight: 1.75 }}>
-                    {item.answer}
+                  {/* big number watermark */}
+                  <div style={{
+                    position:"absolute", top:-12, right:16,
+                    fontFamily:"var(--font-heading)", fontWeight:800,
+                    fontSize:80, color:"rgba(0,87,42,0.05)",
+                    lineHeight:1, userSelect:"none", letterSpacing:"-0.05em",
+                  }}>
+                    {number}
+                  </div>
+
+                  <div style={{
+                    width:44, height:44, borderRadius:10,
+                    background:"rgba(0,87,42,0.07)",
+                    border:"1px solid rgba(0,87,42,0.15)",
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    marginBottom:20,
+                  }}>
+                    <Icon size={20} color="var(--green-deep)" />
+                  </div>
+
+                  <div style={{
+                    fontFamily:"var(--font-heading)", fontWeight:700,
+                    fontSize:18, color:"var(--text)", marginBottom:10,
+                    letterSpacing:"-0.015em",
+                  }}>
+                    {title}
+                  </div>
+                  <p style={{ fontSize:14, color:"var(--text-muted)", lineHeight:1.7, margin:0 }}>
+                    {description}
                   </p>
                 </div>
               ))}
@@ -1742,147 +1020,157 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ════════════════════════════════════════════
-            FOOTER / CTA
-        ════════════════════════════════════════════ */}
-        <footer style={{ background: "var(--dark)" }}>
-          {/* CTA band */}
-          <div style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "6rem 0" }}>
-            <div
-              style={{
-                maxWidth: "1280px",
-                margin: "0 auto",
-                padding: "0 2.5rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "2rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ maxWidth: "620px" }}>
-                <p className="section-label-light" style={{ marginBottom: "12px" }}>Actúa ahora</p>
-                <h2 style={{ fontSize: "clamp(2.25rem, 5vw, 3.5rem)", color: "#fff", marginBottom: "1rem" }}>
-                  Activa la vigilancia ciudadana.
-                </h2>
-                <p style={{ fontSize: "1.125rem", color: "#546a5c", lineHeight: 1.7 }}>
-                  Cada reporte cuenta. La transparencia es un derecho colectivo que se
-                  construye con evidencia, no con silencio.
-                </p>
-              </div>
+        {/* ═══ FORM ══════════════════════════════════════════════════════ */}
+        <ReportForm />
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <a
-                  href="#denuncia"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
-                    background: "var(--gold)",
-                    color: "var(--dark)",
-                    padding: "16px 36px",
-                    borderRadius: "999px",
-                    fontWeight: 700,
-                    fontSize: "1rem",
-                    fontFamily: "var(--font-heading), sans-serif",
-                    transition: "background 0.2s, transform 0.15s",
-                    letterSpacing: "-0.01em",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLAnchorElement).style.background = "var(--gold-bright)";
-                    (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLAnchorElement).style.background = "var(--gold)";
-                    (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(0)";
-                  }}
-                >
-                  Hacer una denuncia <ArrowRight style={{ width: 16, height: 16 }} />
-                </a>
-                <a
-                  href="#reportes"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    color: "#fff",
-                    padding: "16px 36px",
-                    borderRadius: "999px",
-                    fontWeight: 600,
-                    fontSize: "1rem",
-                    fontFamily: "var(--font-heading), sans-serif",
-                    transition: "border-color 0.2s, background 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                      "rgba(255,255,255,0.38)";
-                    (e.currentTarget as HTMLAnchorElement).style.background =
-                      "rgba(255,255,255,0.05)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLAnchorElement).style.borderColor =
-                      "rgba(255,255,255,0.18)";
-                    (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
-                  }}
-                >
-                  Ver reportes
-                </a>
+        {/* ═══ FEED ══════════════════════════════════════════════════════ */}
+        <ReportsFeed />
+
+        {/* ═══ FAQ ═══════════════════════════════════════════════════════ */}
+        <section style={{ background:"var(--bg-alt)", padding:"80px 32px" }}>
+          <div style={{ maxWidth:720, margin:"0 auto" }}>
+            <div style={{ textAlign:"center", marginBottom:48 }}>
+              <div className="section-label-light" style={{ marginBottom:14 }}>
+                Preguntas frecuentes
               </div>
+              <h2 style={{
+                fontFamily:"var(--font-heading)",
+                fontSize:"clamp(26px,3vw,38px)", fontWeight:700,
+                color:"var(--text)", letterSpacing:"-0.025em",
+              }}>
+                Resolvemos tus dudas
+              </h2>
+            </div>
+
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              {faq.map(({ question, answer }, i) => {
+                const open = faqOpen === i;
+                return (
+                  <div key={i} style={{
+                    background:"var(--surface)", borderRadius:12,
+                    border: open ? "1px solid rgba(0,87,42,0.25)" : "1px solid var(--border)",
+                    overflow:"hidden", transition:"border-color 0.2s",
+                  }}>
+                    <button
+                      onClick={() => setFaqOpen(open ? null : i)}
+                      style={{
+                        width:"100%", background:"none", border:"none",
+                        padding:"20px 24px",
+                        display:"flex", justifyContent:"space-between", alignItems:"center",
+                        cursor:"pointer", textAlign:"left",
+                      }}
+                    >
+                      <span style={{
+                        fontFamily:"var(--font-heading)", fontWeight:600,
+                        fontSize:15, color:"var(--text)",
+                      }}>
+                        {question}
+                      </span>
+                      <ChevronRight
+                        size={16}
+                        color="var(--text-muted)"
+                        style={{ flexShrink:0, marginLeft:16,
+                          transform: open ? "rotate(90deg)" : "none",
+                          transition:"transform 0.2s" }}
+                      />
+                    </button>
+                    {open && (
+                      <div style={{ padding:"0 24px 20px" }}>
+                        <p style={{ fontSize:14, color:"var(--text-muted)",
+                          lineHeight:1.75, margin:0 }}>
+                          {answer}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
+        </section>
 
-          {/* Legal */}
-          <div style={{ padding: "2rem 0" }}>
-            <div
-              style={{
-                maxWidth: "1280px",
-                margin: "0 auto",
-                padding: "0 2.5rem",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "1.5rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <div>
-                <p
-                  style={{
-                    fontSize: "0.875rem",
-                    fontWeight: 700,
-                    color: "#fff",
-                    fontFamily: "var(--font-heading), sans-serif",
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  Portal Vigilancia Ciudadana · Antioquia
-                </p>
-                <p style={{ fontSize: "0.75rem", color: "#243028", marginTop: "4px" }}>
-                  Iniciativa editorial independiente de veeduría cívica.
-                </p>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: "6px 16px",
-                  fontSize: "0.75rem",
-                  color: "#243028",
-                  alignItems: "center",
-                }}
-              >
-                <span>No es entidad gubernamental</span>
-                <span>·</span>
-                <span>Contenido sujeto a moderación editorial</span>
-                <span>·</span>
-                <span>© {new Date().getFullYear()}</span>
-              </div>
+        {/* ═══ FOOTER CTA ════════════════════════════════════════════════ */}
+        <footer style={{
+          background:"var(--dark)", padding:"80px 32px 48px",
+          position:"relative", overflow:"hidden",
+        }}>
+          <div className="hero-glow-gold"
+            style={{ top:"-40%", left:"50%", transform:"translateX(-50%)", opacity:0.35 }} />
+
+          <div style={{ maxWidth:800, margin:"0 auto", textAlign:"center",
+            position:"relative", zIndex:1 }}>
+            <div style={{
+              width:48, height:48, borderRadius:12,
+              background:"rgba(212,168,32,0.15)",
+              border:"1px solid rgba(212,168,32,0.3)",
+              display:"flex", alignItems:"center", justifyContent:"center",
+              margin:"0 auto 24px",
+            }}>
+              <Shield size={22} color="var(--gold)" />
+            </div>
+
+            <h2 style={{
+              fontFamily:"var(--font-heading)", fontWeight:800,
+              fontSize:"clamp(28px,4vw,52px)",
+              color:"white", letterSpacing:"-0.04em", lineHeight:1.1,
+              marginBottom:16,
+            }}>
+              El control social<br />
+              <span style={{ color:"var(--gold)" }}>empieza contigo.</span>
+            </h2>
+
+            <p style={{
+              fontSize:16, color:"rgba(255,255,255,0.50)",
+              lineHeight:1.7, maxWidth:440, margin:"0 auto 36px",
+            }}>
+              Cada denuncia es un paso hacia la transparencia.
+              Sin nombre. Sin miedo. Con impacto.
+            </p>
+
+            <a href="#denuncia" style={{
+              display:"inline-flex", alignItems:"center", gap:10,
+              background:"var(--gold)", color:"#111",
+              fontFamily:"var(--font-heading)", fontWeight:700, fontSize:15,
+              padding:"16px 36px", borderRadius:8, textDecoration:"none",
+              transition:"background 0.2s, transform 0.15s",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLAnchorElement).style.background = "var(--gold-bright)";
+              (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-2px)";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLAnchorElement).style.background = "var(--gold)";
+              (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(0)";
+            }}>
+              Hacer una denuncia ahora
+              <ArrowRight size={16} />
+            </a>
+
+            <div style={{
+              marginTop:64,
+              paddingTop:32,
+              borderTop:"1px solid rgba(255,255,255,0.08)",
+              display:"flex", justifyContent:"space-between", alignItems:"center",
+            }}>
+              <span style={{
+                fontFamily:"var(--font-heading)", fontWeight:700,
+                fontSize:15, color:"rgba(255,255,255,0.6)",
+              }}>
+                com<span style={{ color:"var(--gold)" }}>BATE</span>
+              </span>
+              <span style={{ fontSize:12, color:"rgba(255,255,255,0.25)" }}>
+                Vigilancia Ciudadana · Antioquia · {new Date().getFullYear()}
+              </span>
+              <a href="#" style={{
+                fontSize:12, color:"rgba(255,255,255,0.30)",
+                textDecoration:"none",
+              }}>
+                Política de privacidad
+              </a>
             </div>
           </div>
         </footer>
+
       </main>
     </>
   );
