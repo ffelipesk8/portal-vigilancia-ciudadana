@@ -643,7 +643,13 @@ function ReportsFeed() {
   useEffect(() => {
     fetch("/api/reports")
       .then(r => r.json())
-      .then(d => { setReports(d); setLoading(false); })
+      .then((d: unknown) => {
+      const arr = Array.isArray(d) ? d as Report[]
+        : Array.isArray((d as {reports?:Report[]}).reports)
+          ? (d as {reports:Report[]}).reports
+          : [];
+      setReports(arr); setLoading(false);
+    })
       .catch(() => setLoading(false));
   }, []);
 
