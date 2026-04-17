@@ -63,7 +63,7 @@ function Bat3D() {
       ctx.clearRect(0, 0, W, H);
 
       const cosA  = Math.cos(a);
-      const xM    = Math.abs(cosA);          // foreshortening 0-1
+      const xM    = Math.max(0.04, Math.abs(cosA)); // clamp: prevents degenerate gradient in Safari
       const lit   = cosA >= 0;               // which face is bright
 
       /* ── bat silhouette path (bezier profile, top=barrel, bottom=knob) ── */
@@ -206,8 +206,7 @@ function Bat3D() {
     }
 
     function loop() {
-      angle += 0.014;
-      draw(angle);
+      try { angle += 0.014; draw(angle); } catch (_) { /* skip */ }
       raf = requestAnimationFrame(loop);
     }
     loop();
