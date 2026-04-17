@@ -59,117 +59,189 @@ function Bat3D() {
       const W = 260, H = 520;
 
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
-      camera.position.set(0, 0, 7);
+      scene.background = new THREE.Color(0x060f08);
 
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      const camera = new THREE.PerspectiveCamera(38, W / H, 0.1, 100);
+      camera.position.set(0, 0.3, 8);
+      camera.lookAt(0, 0, 0);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(W, H);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       renderer.localClippingEnabled = true;
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.2;
+      renderer.toneMappingExposure = 1.4;
       mount.appendChild(renderer.domElement);
 
-      /* ─ Toon gradient textures ─ */
-      function makeToon(hexColors: string[]) {
-        const data = new Uint8Array(hexColors.length * 4);
-        hexColors.forEach((hex, i) => {
-          const c = new THREE.Color(hex);
-          data[i * 4 + 0] = Math.round(c.r * 255);
-          data[i * 4 + 1] = Math.round(c.g * 255);
-          data[i * 4 + 2] = Math.round(c.b * 255);
-          data[i * 4 + 3] = 255;
-        });
-        const t = new THREE.DataTexture(data, hexColors.length, 1);
-        t.minFilter = THREE.NearestFilter;
-        t.magFilter = THREE.NearestFilter;
-        t.needsUpdate = true;
+      /* ── Wood grain texture ── */
+      function makeWoodTex() {
+        const cv = document.createElement("canvas");
+        cv.width = 512; cv.height = 512;
+        const cx = cv.getContext("2d") as CanvasRenderingContext2D;
+        const base = cx.createLinearGradient(0, 0, 512, 0);
+        base.addColorStop(0.00, "#b8814a");
+        base.addColorStop(0.25, "#d4a25e");
+        base.addColorStop(0.50, "#c9916a");
+        base.addColorStop(0.75, "#d4a25e");
+        base.addColorStop(1.00, "#b8814a");
+        cx.fillStyle = base;
+        cx.fillRect(0, 0, 512, 512);
+        for (let i = 0; i < 120; i++) {
+          const y = Math.random() * 512;
+          const alpha = 0.04 + Math.random() * 0.12;
+          const dark = Math.random() > 0.5;
+          cx.strokeStyle = dark
+            ? "rgba(80,40,10," + alpha + ")"
+            : "rgba(220,170,100," + alpha + ")";
+          cx.lineWidth = 0.5 + Math.random() * 1.5;
+          cx.beginPath();
+          let px = 0;
+          cx.moveTo(px, y);
+          while (px < 512) {
+            px += 8 + Math.random() * 12;
+            cx.lineTo(px, y + (Math.random() - 0.5) * 3);
+          }
+          cx.stroke();
+        }
+        const kx = 512 * 0.4, ky = 512 * 0.35;
+        for (let r = 18; r > 0; r -= 2) {
+          cx.beginPath();
+          cx.ellipse(kx, ky, r * 1.4, r * 0.5, 0.1, 0, Math.PI * 2);
+          cx.strokeStyle = "rgba(90,45,10," + (0.06 - r * 0.003) + ")";
+          cx.lineWidth = 1.5;
+          cx.stroke();
+        }
+        const t = new THREE.CanvasTexture(cv);
+        t.wrapS = THREE.RepeatWrapping;
+        t.wrapT = THREE.RepeatWrapping;
+        t.repeat.set(1, 3);
         return t;
       }
-      const gradGold  = makeToon(["#3d2400","#8B5E00","#D4A820","#F0D070"]);
-      const gradGreen = makeToon(["#000a04","#002a14","#00572a","#00a050"]);
 
-      /* ─ Bat silhouette profile ─ */
+      /* ── Handle tape texture ── */
+      function makeTapeTex() {
+        const cv = document.createElement("canvas");
+        cv.width = 64; cv.height = 256;
+        const cx = cv.getContext("2d") as CanvasRenderingContext2D;
+        cx.fillStyle = "#0a0a0a";
+        cx.fillRect(0, 0, 64, 256);
+        for (let i = -10; i < 20; i++) {
+          cx.strokeStyle = "rgba(40,40,40,0.8)";
+          cx.lineWidth = 3;
+          cx.beginPath();
+          cx.moveTo(0, i * 18);
+          cx.lineTo(64, i * 18 + 64);
+          cx.stroke();
+        }
+        const t = new THREE.CanvasTexture(cv);
+        t.wrapS = THREE.RepeatWrapping;
+        t.wrapT = THREE.RepeatWrapping;
+        t.repeat.set(3, 4);
+        return t;
+      }
+
+      const woodTex = makeWoodTex();
+      const tapeTex = makeTapeTex();
+
+      /* ── Bat silhouette profile ── */
       const pts = [
-        [0.000,-2.50],[0.130,-2.40],[0.170,-2.22],[0.160,-2.10],
-        [0.090,-2.00],[0.058,-1.80],[0.052,-1.20],[0.052,-0.20],
-        [0.058, 0.10],[0.100, 0.55],[0.160, 1.00],[0.210, 1.45],
-        [0.235, 1.80],[0.240, 2.10],[0.240, 2.28],[0.235, 2.38],
-        [0.200, 2.46],[0.120, 2.50],[0.000, 2.52],
-      ].map(([x,y]) => new THREE.Vector2(x, y));
+        [0.000,-2.55],[0.140,-2.42],[0.185,-2.20],[0.175,-2.05],
+        [0.095,-1.95],[0.060,-1.75],[0.053,-1.10],[0.053,-0.10],
+        [0.060, 0.15],[0.105, 0.62],[0.165, 1.10],[0.215, 1.55],
+        [0.240, 1.90],[0.245, 2.15],[0.245, 2.32],[0.240, 2.42],
+        [0.205, 2.49],[0.125, 2.53],[0.000, 2.55],
+      ].map(([x, y]) => new THREE.Vector2(x, y));
 
-      const batGeo = new THREE.LatheGeometry(pts, 48);
-      const SPLIT  = -0.25;
+      const batGeo = new THREE.LatheGeometry(pts, 64);
+      const SPLIT  = -0.18;
 
-      /* ─ Two-tone: gold barrel + green handle ─ */
-      const barrelMesh = new THREE.Mesh(batGeo, new THREE.MeshToonMaterial({
-        color:         0xD4A820,
-        gradientMap:   gradGold,
-        clippingPlanes:[new THREE.Plane(new THREE.Vector3(0, -1, 0), SPLIT)],
-      }));
-      const handleMesh = new THREE.Mesh(batGeo, new THREE.MeshToonMaterial({
-        color:         0x00572a,
-        gradientMap:   gradGreen,
-        clippingPlanes:[new THREE.Plane(new THREE.Vector3(0,  1, 0), -SPLIT)],
-      }));
-
-      /* ─ Cartoon outline (back-face inflate) ─ */
-      const outPts = pts.map(p => new THREE.Vector2(p.x * 1.045, p.y));
-      const outMesh = new THREE.Mesh(
-        new THREE.LatheGeometry(outPts, 48),
-        new THREE.MeshBasicMaterial({ color: 0x080808, side: THREE.BackSide }),
-      );
-
-      /* ─ VIGILANCIA text on barrel ─ */
-      const tc = document.createElement("canvas");
-      tc.width = 512; tc.height = 128;
-      const tctx = tc.getContext("2d") as CanvasRenderingContext2D;
-      tctx.font = "bold 56px Arial Black, sans-serif";
-      tctx.fillStyle = "#1a0a00";
-      tctx.textAlign = "center";
-      tctx.textBaseline = "middle";
-      tctx.fillText("VIGILANCIA", 256, 64);
-      const textMesh = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.244, 0.244, 0.65, 48, 1, true, -Math.PI * 0.55, Math.PI * 1.1),
-        new THREE.MeshBasicMaterial({
-          map: new THREE.CanvasTexture(tc),
-          transparent: true,
-          alphaTest: 0.05,
-          depthWrite: false,
-        }),
-      );
-      textMesh.position.y = 1.9;
-
-      /* ─ Wood grain rings on barrel ─ */
-      const ringMat = new THREE.MeshBasicMaterial({ color: 0x8B5E00, transparent: true, opacity: 0.35 });
-      const ringGeos = Array.from({ length: 7 }, (_, i) => {
-        const r = new THREE.Mesh(new THREE.TorusGeometry(0.242, 0.0025, 6, 48), ringMat);
-        r.rotation.x = Math.PI / 2;
-        r.position.y  = 0.4 + i * 0.32;
-        return r;
+      /* ── Materials ── */
+      const barrelMat = new THREE.MeshStandardMaterial({
+        map:            woodTex,
+        roughness:      0.55,
+        metalness:      0.0,
+        clippingPlanes: [new THREE.Plane(new THREE.Vector3(0, -1, 0), SPLIT)],
+      });
+      const handleMat = new THREE.MeshStandardMaterial({
+        map:            tapeTex,
+        roughness:      0.90,
+        metalness:      0.0,
+        color:          0x111111,
+        clippingPlanes: [new THREE.Plane(new THREE.Vector3(0,  1, 0), -SPLIT)],
+      });
+      const lacquerMat = new THREE.MeshStandardMaterial({
+        color:          0xffeedd,
+        roughness:      0.08,
+        metalness:      0.0,
+        transparent:    true,
+        opacity:        0.10,
+        clippingPlanes: [new THREE.Plane(new THREE.Vector3(0, -1, 0), SPLIT)],
       });
 
-      /* ─ Assemble & tilt ─ */
+      /* ── Meshes ── */
+      const barrelMesh  = new THREE.Mesh(batGeo, barrelMat);
+      const handleMesh  = new THREE.Mesh(batGeo, handleMat);
+      const lacquerMesh = new THREE.Mesh(batGeo, lacquerMat);
+      barrelMesh.castShadow = true;
+      handleMesh.castShadow = true;
+
+      const knobMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(0.17, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
+        new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.85 }),
+      );
+      knobMesh.position.y = -2.55;
+      knobMesh.rotation.x = Math.PI;
+
+      const capMesh = new THREE.Mesh(
+        new THREE.CircleGeometry(0.10, 32),
+        new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.5 }),
+      );
+      capMesh.position.y = 2.55;
+      capMesh.rotation.x = -Math.PI / 2;
+
+      const ringMesh = new THREE.Mesh(
+        new THREE.TorusGeometry(0.062, 0.004, 8, 64),
+        new THREE.MeshStandardMaterial({ color: 0xffd080, roughness: 0.2, metalness: 0.8 }),
+      );
+      ringMesh.rotation.x = Math.PI / 2;
+      ringMesh.position.y = SPLIT + 0.01;
+
       const batGroup = new THREE.Group();
-      batGroup.add(barrelMesh, handleMesh, outMesh, textMesh, ...ringGeos);
-      batGroup.rotation.z = Math.PI * 0.18;
+      batGroup.add(barrelMesh, handleMesh, lacquerMesh, knobMesh, capMesh, ringMesh);
+      batGroup.rotation.z = Math.PI * 0.17;
       scene.add(batGroup);
 
-      /* ─ Lighting ─ */
-      scene.add(new THREE.AmbientLight(0xfff5cc, 0.7));
-      const key = new THREE.DirectionalLight(0xfff0d0, 2.2);
-      key.position.set(3, 5, 4);
+      /* ── Floor shadow ── */
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(20, 20),
+        new THREE.ShadowMaterial({ opacity: 0.25 }),
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -3.2;
+      floor.receiveShadow = true;
+      scene.add(floor);
+
+      /* ── Lights ── */
+      scene.add(new THREE.AmbientLight(0xffe8cc, 0.35));
+      const key = new THREE.DirectionalLight(0xfff5e8, 3.5);
+      key.position.set(4, 6, 5);
+      key.castShadow = true;
       scene.add(key);
-      const rim = new THREE.DirectionalLight(0xD4A820, 1.2);
-      rim.position.set(-3, 1, -2);
+      const fill = new THREE.DirectionalLight(0xd4e8ff, 0.8);
+      fill.position.set(-4, 2, 3);
+      scene.add(fill);
+      const rim = new THREE.DirectionalLight(0xffcc44, 2.2);
+      rim.position.set(-2, 3, -5);
       scene.add(rim);
 
-      /* ─ Animation loop ─ */
+      /* ── Animation ── */
       let t = 0;
       function draw() {
         raf = requestAnimationFrame(draw);
-        t += 0.012;
-        batGroup.rotation.y = Math.sin(t * 0.4) * 0.5;
+        t += 0.008;
+        batGroup.rotation.y = t * 0.6;
         renderer.render(scene, camera);
       }
       draw();
